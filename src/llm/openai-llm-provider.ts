@@ -2,7 +2,10 @@ import OpenAI from "openai";
 import { BaseLLMProvider, LLMProviderOptions } from "./base-llm-provider.js";
 import { generateWithSelfHeal } from "./self-heal.js";
 import { Message } from "./types.js";
+import { createLogger } from "../utils/logger.js";
 import { z } from "zod";
+
+const log = createLogger("OpenAILLMProvider");
 
 export class OpenAILLMProvider extends BaseLLMProvider {
   private readonly api: OpenAI;
@@ -16,6 +19,7 @@ export class OpenAILLMProvider extends BaseLLMProvider {
       apiKey: options.apiKey,
     });
     this.embeddingModel = options.embeddingModel;
+    log.info("Initialized", { model: this.model, embeddingModel: this.embeddingModel });
   }
 
   async generate(messages: Message[]): Promise<string>;
@@ -30,11 +34,13 @@ export class OpenAILLMProvider extends BaseLLMProvider {
     schema?: T,
   ): Promise<string | z.infer<T>> {
     if (schema) {
+      log.debug("Generating structured output", { selfHealAttempts, model: this.model });
       return generateWithSelfHeal(messages, selfHealAttempts, schema, (conversation) =>
         this.requestCompletion(conversation, true),
       );
     }
 
+    log.debug("Generating completion", { model: this.model });
     return this.requestCompletion(messages, false);
   }
 
@@ -61,6 +67,8 @@ export class OpenAILLMProvider extends BaseLLMProvider {
     if (!this.embeddingModel) {
       throw new Error("Embedding model not configured");
     }
+
+    log.debug("Embedding batch", { count: texts.length, model: this.embeddingModel });
 
     const response = await this.api.embeddings.create({
       model: this.embeddingModel,

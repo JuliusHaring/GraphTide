@@ -2,7 +2,10 @@ import { Content, GoogleGenerativeAI } from "@google/generative-ai";
 import { BaseLLMProvider, LLMProviderOptions } from "./base-llm-provider.js";
 import { generateWithSelfHeal } from "./self-heal.js";
 import { Message } from "./types.js";
+import { createLogger } from "../utils/logger.js";
 import { z } from "zod";
+
+const log = createLogger("GeminiLLMProvider");
 
 function toGeminiRequest(messages: Message[]): {
   systemInstruction?: string;
@@ -40,6 +43,7 @@ export class GeminiLLMProvider extends BaseLLMProvider {
     this.model = options.model;
     this.embeddingModel = options.embeddingModel;
     this.api = new GoogleGenerativeAI(options.apiKey);
+    log.info("Initialized", { model: this.model, embeddingModel: this.embeddingModel });
   }
 
   async generate(messages: Message[]): Promise<string>;
@@ -54,11 +58,13 @@ export class GeminiLLMProvider extends BaseLLMProvider {
     schema?: T,
   ): Promise<string | z.infer<T>> {
     if (schema) {
+      log.debug("Generating structured output", { selfHealAttempts, model: this.model });
       return generateWithSelfHeal(messages, selfHealAttempts, schema, (conversation) =>
         this.requestCompletion(conversation, true),
       );
     }
 
+    log.debug("Generating completion", { model: this.model });
     return this.requestCompletion(messages, false);
   }
 
@@ -88,6 +94,7 @@ export class GeminiLLMProvider extends BaseLLMProvider {
     if (!this.embeddingModel) {
       throw new Error("Embedding model not configured");
     }
+    log.debug("Embedding batch", { count: texts.length, model: this.embeddingModel });
 
     const model = this.api.getGenerativeModel({
       model: this.embeddingModel,

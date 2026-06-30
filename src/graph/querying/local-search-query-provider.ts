@@ -10,6 +10,7 @@ import {
 
 export class LocalSearchQueryProvider extends BaseQueryProvider {
   async buildContext(query: string, graph: QueryGraph): Promise<QueryContext> {
+    this.log.debug("Building local search context");
     const [queryEmbedding] = await this.llmProvider.embed([query]);
     const seeds = topKBySimilarity(
       this.llmProvider,
@@ -19,6 +20,11 @@ export class LocalSearchQueryProvider extends BaseQueryProvider {
     );
     const seedIds = new Set(seeds.map((seed) => seed.id));
     const neighborhood = expandNeighborhood(seedIds, graph.edges);
+    this.log.debug("Local neighborhood expanded", {
+      seeds: seedIds.size,
+      nodes: neighborhood.nodeIds.size,
+      edges: neighborhood.edges.length,
+    });
     const nodesById = new Map(graph.nodes.map((node) => [node.id, node]));
 
     const materials: string[] = [];

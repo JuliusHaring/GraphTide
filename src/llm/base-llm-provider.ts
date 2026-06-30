@@ -1,5 +1,8 @@
 import { Message } from "./types.js";
+import { createLogger } from "../utils/logger.js";
 import { z } from "zod";
+
+const log = createLogger("BaseLLMProvider");
 
 export type LLMProviderOptions = {
   apiKey: string;
@@ -65,9 +68,11 @@ export abstract class BaseLLMProvider {
     }
 
     if (uncached.length === 0) {
+      log.debug("Embed cache hit", { count: texts.length });
       return results;
     }
 
+    log.debug("Embedding texts", { total: texts.length, uncached: uncached.length });
     const embeddings = await this.embedUncached(uncached.map((entry) => entry.text));
     for (let index = 0; index < uncached.length; index++) {
       const { index: resultIndex, text } = uncached[index];

@@ -4,6 +4,7 @@ import { formatCommunity, topKBySimilarity } from "./utils.js";
 
 export class GlobalSearchQueryProvider extends BaseQueryProvider {
   async buildContext(query: string, graph: QueryGraph): Promise<QueryContext> {
+    this.log.debug("Building global search context");
     const communities = await this.ensureCommunities(graph);
     if (communities.length === 0) {
       return { query, materials: [] };
@@ -22,6 +23,7 @@ export class GlobalSearchQueryProvider extends BaseQueryProvider {
       })),
       this.topK,
     );
+    this.log.debug("Global search ranked", { results: ranked.length });
 
     return {
       query,

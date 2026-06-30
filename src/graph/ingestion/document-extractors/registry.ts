@@ -4,6 +4,9 @@ import { ExcelExtractor } from "./excel.js";
 import { PdfExtractor } from "./pdf.js";
 import { PlainTextExtractor } from "./plain-text.js";
 import { DocumentBuffer, DocumentTextExtractor } from "./types.js";
+import { createLogger } from "../../../utils/logger.js";
+
+const log = createLogger("DocumentExtractorRegistry");
 
 const defaultExtractors: DocumentTextExtractor[] = [
   new PlainTextExtractor(),
@@ -29,6 +32,7 @@ export class DocumentExtractorRegistry {
   }
 
   async extractText(mimeType: string, data: DocumentBuffer): Promise<string> {
+    log.debug("Extracting document text", { mimeType, bytes: data.length });
     const extractor = this.extractorsByMimeType.get(mimeType);
     if (!extractor) {
       throw new Error(
@@ -41,6 +45,7 @@ export class DocumentExtractorRegistry {
       throw new Error(`No text could be extracted from document with mime type "${mimeType}"`);
     }
 
+    log.debug("Document text extracted", { mimeType, characters: text.length });
     return text;
   }
 }

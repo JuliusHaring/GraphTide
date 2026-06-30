@@ -1,6 +1,9 @@
 import sqlite3 from "sqlite3";
 import { BaseStorageProvider } from "./base-storage-provider.js";
 import { Edge, Node } from "./types.js";
+import { createLogger } from "../utils/logger.js";
+
+const log = createLogger("SqliteStorageProvider");
 
 type Database = sqlite3.Database;
 
@@ -88,6 +91,7 @@ export class SqliteStorageProvider extends BaseStorageProvider {
     super();
     this.db = new sqlite3.Database(path);
     this.ready = this.init();
+    log.info("Opened database", { path });
   }
 
   private async init(): Promise<void> {
@@ -113,6 +117,7 @@ export class SqliteStorageProvider extends BaseStorageProvider {
     );
     await this.ensureColumn("nodes", "embedding", "TEXT");
     await this.ensureColumn("edges", "embedding", "TEXT");
+    log.debug("Database initialized");
   }
 
   private async ensureColumn(table: string, column: string, definition: string): Promise<void> {
@@ -176,6 +181,7 @@ export class SqliteStorageProvider extends BaseStorageProvider {
       JSON.stringify(node.properties),
       serializeEmbedding(node),
     ]);
+    log.debug("Created node", { id: node.id });
   }
 
   async updateNode(node: Node): Promise<void> {
@@ -190,6 +196,7 @@ export class SqliteStorageProvider extends BaseStorageProvider {
       serializeEmbedding(node),
       node.id,
     ]);
+    log.debug("Updated node", { id: node.id });
   }
 
   async upsertNode(node: Node): Promise<void> {
@@ -204,11 +211,13 @@ export class SqliteStorageProvider extends BaseStorageProvider {
          embedding = excluded.embedding`,
       [node.id, node.type, JSON.stringify(node.properties), serializeEmbedding(node)],
     );
+    log.debug("Upserted node", { id: node.id });
   }
 
   async deleteNode(id: string): Promise<void> {
     await this.ready;
     await run(this.db, "DELETE FROM nodes WHERE id = ?", [id]);
+    log.debug("Deleted node", { id });
   }
 
   async getEdge(id: string): Promise<Edge> {
@@ -274,6 +283,7 @@ export class SqliteStorageProvider extends BaseStorageProvider {
         serializeEmbedding(edge),
       ],
     );
+    log.debug("Created edge", { id: edge.id });
   }
 
   async updateEdge(edge: Edge): Promise<void> {
@@ -294,6 +304,7 @@ export class SqliteStorageProvider extends BaseStorageProvider {
         edge.id,
       ],
     );
+    log.debug("Updated edge", { id: edge.id });
   }
 
   async upsertEdge(edge: Edge): Promise<void> {
@@ -317,10 +328,12 @@ export class SqliteStorageProvider extends BaseStorageProvider {
         serializeEmbedding(edge),
       ],
     );
+    log.debug("Upserted edge", { id: edge.id });
   }
 
   async deleteEdge(id: string): Promise<void> {
     await this.ready;
     await run(this.db, "DELETE FROM edges WHERE id = ?", [id]);
+    log.debug("Deleted edge", { id });
   }
 }

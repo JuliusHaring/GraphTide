@@ -1,3 +1,5 @@
+export { createLogger, Logger } from "./utils/index.js";
+export type { LogLevel, LoggerOptions } from "./utils/index.js";
 export { GraphClient } from "./graph/graph-client.js";
 export type { QueryMethod } from "./graph/querying/index.js";
 export {

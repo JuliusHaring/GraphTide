@@ -7,6 +7,7 @@ export class DriftSearchQueryProvider extends BaseQueryProvider {
   private readonly localSearch = new LocalSearchQueryProvider(this.options);
 
   async buildContext(query: string, graph: QueryGraph): Promise<QueryContext> {
+    this.log.debug("Building drift search context");
     const localContext = await this.localSearch.buildContext(query, graph);
     const communities = await this.ensureCommunities(graph);
     if (communities.length === 0) {
@@ -29,6 +30,10 @@ export class DriftSearchQueryProvider extends BaseQueryProvider {
     const communityMaterials = relevantCommunities.map((community) =>
       formatCommunity(community.id, community.summary),
     );
+    this.log.debug("Drift context ready", {
+      communities: communityMaterials.length,
+      localMaterials: localContext.materials.length,
+    });
 
     return {
       query,

@@ -21,7 +21,12 @@ export class CombinedSearchQueryProvider extends BaseQueryProvider {
 
   async buildContext(query: string, graph: QueryGraph): Promise<QueryContext> {
     const strategies = await this.selectStrategies(query);
+    this.log.info("Selected strategies", { strategies });
     const materials = await this.collectMaterials(query, graph, strategies);
+    this.log.debug("Collected materials", {
+      strategies: strategies.length,
+      materials: materials.length,
+    });
 
     return {
       query,
@@ -30,7 +35,9 @@ export class CombinedSearchQueryProvider extends BaseQueryProvider {
   }
 
   async query(query: string, graph?: QueryGraph): Promise<string> {
+    this.log.info("Running combined query", { query });
     const context = await this.buildContext(query, graph ?? (await this.loadGraph()));
+    this.log.debug("Synthesizing combined answer");
     return this.llmProvider.generate(buildCombinedAnswerMessages(context.query, context.materials));
   }
 

@@ -1,5 +1,6 @@
 import { BaseLLMProvider } from "../../llm/base-llm-provider.js";
 import { BaseStorageProvider } from "../../storage/base-storage-provider.js";
+import { createLogger, Logger } from "../../utils/logger.js";
 import { buildCommunitySummaryMessages, buildQueryAnswerMessages } from "./prompts.js";
 import { Community, QueryContext, QueryGraph } from "./types.js";
 import { buildGraphSignature, detectCommunities, formatEdge, formatNode } from "./utils.js";
@@ -19,6 +20,7 @@ export abstract class BaseQueryProvider {
   protected readonly storageProvider: BaseStorageProvider;
   protected readonly topK: number;
   protected readonly seedK: number;
+  protected readonly log: Logger;
   private communitiesCache?: Community[];
   private graphSignature?: string;
 
@@ -27,11 +29,13 @@ export abstract class BaseQueryProvider {
     this.storageProvider = options.storageProvider;
     this.topK = options.topK ?? DEFAULT_TOP_K;
     this.seedK = options.seedK ?? DEFAULT_SEED_K;
+    this.log = createLogger(this.constructor.name);
   }
 
   abstract buildContext(query: string, graph: QueryGraph): Promise<QueryContext>;
 
   async loadGraph(): Promise<QueryGraph> {
+    this.log.debug("Loading graph");
     const [nodes, edges] = await Promise.all([
       this.storageProvider.listNodes(),
       this.storageProvider.listEdges(),
@@ -39,11 +43,18 @@ export abstract class BaseQueryProvider {
 
     const graph = { nodes, edges };
     const communities = await this.resolveCommunities(graph);
+    this.log.debug("Graph loaded", {
+      nodes: nodes.length,
+      edges: edges.length,
+      communities: communities.length,
+    });
     return { ...graph, communities };
   }
 
   async query(query: string, graph?: QueryGraph): Promise<string> {
+    this.log.info("Running query", { query });
     const context = await this.buildContext(query, graph ?? (await this.loadGraph()));
+    this.log.debug("Context built", { materials: context.materials.length });
     return this.answer(context);
   }
 
@@ -62,10 +73,12 @@ export abstract class BaseQueryProvider {
   ): Promise<Community[]> {
     const signature = buildGraphSignature(graph.nodes, graph.edges);
     if (this.communitiesCache && this.graphSignature === signature) {
+      this.log.debug("Using cached communities", { count: this.communitiesCache.length });
       return this.communitiesCache;
     }
 
     const clusters = detectCommunities(graph.nodes, graph.edges);
+    this.log.info("Detecting communities", { clusters: clusters.length });
     const communities = await Promise.all(
       clusters.map(async (cluster) => ({
         id: cluster.id,
@@ -76,6 +89,7 @@ export abstract class BaseQueryProvider {
 
     this.communitiesCache = communities;
     this.graphSignature = signature;
+    this.log.info("Communities ready", { count: communities.length });
     return communities;
   }
 

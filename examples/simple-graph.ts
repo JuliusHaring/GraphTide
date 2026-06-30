@@ -1,10 +1,12 @@
 import { Ontology } from "../src/graph/ontology.js";
-import { GraphClient } from "../src/index.js";
+import { GraphClient, createLogger } from "../src/index.js";
 import { GeminiLLMProvider } from "../src/llm/gemini-llm-provider.js";
 import { SqliteStorageProvider } from "../src/storage/sqlite-storage-provider.js";
 import dotenv from "dotenv";
 
 dotenv.config();
+
+const log = createLogger("simple-graph");
 
 async function main() {
   const ontology: Ontology = {
@@ -70,10 +72,10 @@ async function main() {
 
   const question = "Where did Marie Curie work? What did she accomplish?";
   const result = await client.query(question);
-  console.log(result);
+  log.info("Answer", { result });
 }
 
 main().catch((error) => {
-  console.error(error);
+  log.error("Example failed", { error: error instanceof Error ? error.message : String(error) });
   process.exit(1);
 });

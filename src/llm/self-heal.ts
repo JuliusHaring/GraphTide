@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { buildSelfHealUserMessage } from "./prompts.js";
 import { Message } from "./types.js";
+import { createLogger } from "../utils/logger.js";
+
+const log = createLogger("SelfHeal");
 
 function formatValidationError(error: unknown): string {
   if (error instanceof z.ZodError) {
@@ -32,12 +35,15 @@ export async function generateWithSelfHeal<T extends z.ZodType>(
   let lastError = "Failed to generate valid structured output";
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    log.debug("Structured output attempt", { attempt: attempt + 1, maxAttempts });
     lastOutput = await request(conversation);
 
     try {
+      log.debug("Structured output validated", { attempt: attempt + 1 });
       return parseStructuredOutput(schema, lastOutput);
     } catch (error) {
       lastError = formatValidationError(error);
+      log.warn("Structured output validation failed", { attempt: attempt + 1, error: lastError });
 
       if (attempt === maxAttempts - 1) {
         throw error;

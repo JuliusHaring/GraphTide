@@ -21,6 +21,9 @@ import {
 import { LLMExtractor } from "./ingestion/llm-extractor.js";
 import { TextExtractor } from "./ingestion/text-extractor.js";
 import { IngestionResult } from "./ingestion/types.js";
+import { createLogger } from "../utils/logger.js";
+
+const log = createLogger("GraphClient");
 
 export type GraphClientOptions = {
   storageProvider: BaseStorageProvider;
@@ -74,23 +77,30 @@ export class GraphClient {
     this.ontologyRegistry = OntologyRegistry.parse(options.ontology);
     this.textExtractor = new TextExtractor(options.llmProvider, options.ontology);
     this.llmExtractor = new LLMExtractor(options.llmProvider);
+    log.info("Initialized", { enableEmbedding: this.enableEmbedding });
   }
 
   async ingestFromPath(path: string): Promise<IngestionResult> {
+    log.info("Ingesting from path", { path });
     const result = await this.textExtractor.extractFromPath(path);
     await this.save(result);
+    log.info("Ingestion complete", { nodes: result.nodes.length, edges: result.edges.length });
     return result;
   }
 
   async ingestFromFile(file: File): Promise<IngestionResult> {
+    log.info("Ingesting from file", { name: file.name });
     const result = await this.textExtractor.extractFromFile(file);
     await this.save(result);
+    log.info("Ingestion complete", { nodes: result.nodes.length, edges: result.edges.length });
     return result;
   }
 
   async ingestFromText(text: string | string[]): Promise<IngestionResult> {
+    log.info("Ingesting from text", { chunks: Array.isArray(text) ? text.length : 1 });
     const result = await this.llmExtractor.extract(text, this.ontology);
     await this.save(result);
+    log.info("Ingestion complete", { nodes: result.nodes.length, edges: result.edges.length });
     return result;
   }
 
@@ -103,12 +113,14 @@ export class GraphClient {
   }
 
   async createNode(input: CreateNodeInput): Promise<Node> {
+    log.info("Creating node", { id: input.id, type: input.type });
     const node = await this.finalizeNode(this.ontologyRegistry.parseNode(input));
     await this.storageProvider.createNode(node);
     return node;
   }
 
   async editNode(id: string, input: EditNodeInput): Promise<Node> {
+    log.info("Editing node", { id });
     const existing = await this.storageProvider.getNode(id);
     const node = await this.finalizeNode(
       this.ontologyRegistry.parseNode({
@@ -124,6 +136,7 @@ export class GraphClient {
   }
 
   async createEdge(input: CreateEdgeInput): Promise<Edge> {
+    log.info("Creating edge", { id: input.id, type: input.type, from: input.from, to: input.to });
     const edge = await this.finalizeEdge(
       this.ontologyRegistry.parseEdge(input, await this.loadNodesById([input.from, input.to])),
     );
@@ -132,6 +145,7 @@ export class GraphClient {
   }
 
   async editEdge(id: string, input: EditEdgeInput): Promise<Edge> {
+    log.info("Editing edge", { id });
     const existing = await this.storageProvider.getEdge(id);
     const from = input.from ?? existing.from;
     const to = input.to ?? existing.to;
@@ -154,15 +168,20 @@ export class GraphClient {
   }
 
   deleteNode(id: string): Promise<void> {
+    log.info("Deleting node", { id });
     return this.storageProvider.deleteNode(id);
   }
 
   deleteEdge(id: string): Promise<void> {
+    log.info("Deleting edge", { id });
     return this.storageProvider.deleteEdge(id);
   }
 
   async query(input: string, method: QueryMethod = "combined"): Promise<string> {
-    return this.getQueryProvider(method).query(input);
+    log.info("Querying graph", { method });
+    const answer = await this.getQueryProvider(method).query(input);
+    log.debug("Query complete", { method });
+    return answer;
   }
 
   private queryProviders: Partial<Record<QueryMethod, BaseQueryProvider>> = {};
@@ -173,6 +192,7 @@ export class GraphClient {
       return cached;
     }
 
+    log.debug("Creating query provider", { method });
     const options = {
       llmProvider: this.llmProvider,
       storageProvider: this.storageProvider,
@@ -283,6 +303,7 @@ export class GraphClient {
     }
 
     const embeddings = await this.llmProvider.embed(pending.map((entry) => entry.text));
+    log.debug("Generated embeddings", { count: pending.length });
     for (let index = 0; index < pending.length; index++) {
       const { index: itemIndex } = pending[index];
       output[itemIndex] = { ...output[itemIndex], embedding: embeddings[index] };

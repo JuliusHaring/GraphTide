@@ -1,5 +1,8 @@
 import { BaseStorageProvider } from "./base-storage-provider.js";
 import { Edge, Node } from "./types.js";
+import { createLogger } from "../utils/logger.js";
+
+const log = createLogger("MemoryStorageProvider");
 
 export class MemoryStorageProvider extends BaseStorageProvider {
   private nodes: Node[] = [];
@@ -26,6 +29,7 @@ export class MemoryStorageProvider extends BaseStorageProvider {
       throw new Error(`Node with id "${node.id}" already exists`);
     }
     this.nodes.push(node);
+    log.debug("Created node", { id: node.id });
     return Promise.resolve();
   }
 
@@ -35,6 +39,7 @@ export class MemoryStorageProvider extends BaseStorageProvider {
       throw new Error(`Node with id "${node.id}" not found`);
     }
     this.nodes[index] = node;
+    log.debug("Updated node", { id: node.id });
     return Promise.resolve();
   }
 
@@ -45,11 +50,13 @@ export class MemoryStorageProvider extends BaseStorageProvider {
     } else {
       this.nodes[index] = node;
     }
+    log.debug("Upserted node", { id: node.id });
     return Promise.resolve();
   }
 
   deleteNode(id: string): Promise<void> {
     this.nodes = this.nodes.filter((node) => node.id !== id);
+    log.debug("Deleted node", { id });
     return Promise.resolve();
   }
 
@@ -74,6 +81,7 @@ export class MemoryStorageProvider extends BaseStorageProvider {
       throw new Error(`Edge with id "${edge.id}" already exists`);
     }
     this.edges.push(edge);
+    log.debug("Created edge", { id: edge.id });
     return Promise.resolve();
   }
 
@@ -83,6 +91,7 @@ export class MemoryStorageProvider extends BaseStorageProvider {
       throw new Error(`Edge with id "${edge.id}" not found`);
     }
     this.edges[index] = edge;
+    log.debug("Updated edge", { id: edge.id });
     return Promise.resolve();
   }
 
@@ -93,11 +102,13 @@ export class MemoryStorageProvider extends BaseStorageProvider {
     } else {
       this.edges[index] = edge;
     }
+    log.debug("Upserted edge", { id: edge.id });
     return Promise.resolve();
   }
 
   deleteEdge(id: string): Promise<void> {
     this.edges = this.edges.filter((edge) => edge.id !== id);
+    log.debug("Deleted edge", { id });
     return Promise.resolve();
   }
 }
