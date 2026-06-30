@@ -1,0 +1,22 @@
+{
+  "cases": [
+    {
+      "id": "work-location",
+      "method": "local",
+      "question": "Where did Marie Curie work?",
+      "golden": "Marie Curie worked at the University of Paris and later directed the Curie Institute in Paris."
+    },
+    {
+      "id": "nobel-physics",
+      "method": "basic",
+      "question": "What Nobel Prize did Marie Curie win in 1903?",
+      "golden": "Marie Curie won the Nobel Prize in Physics in 1903, shared with Pierre Curie and Henri Becquerel, for research on radioactivity."
+    },
+    {
+      "id": "radioactivity-legacy",
+      "method": "drift",
+      "question": "How did Marie Curie's work shape the broader field of radioactivity?",
+      "golden": "Marie and Pierre Curie discovered polonium and radium, advanced the study of radioactivity, won Nobel Prizes, and their legacy continued through the Curie Institute and their daughter Irène Joliot-Curie."
+    }
+  ]
+}
