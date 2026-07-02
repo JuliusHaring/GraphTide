@@ -13,6 +13,7 @@ tasks:
       - |
         cat > .git/hooks/pre-commit << 'EOF'
         #!/bin/sh
+        set -e
         npm run fl
         EOF
       - chmod +x .git/hooks/pre-commit
