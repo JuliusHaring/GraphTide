@@ -13,6 +13,7 @@ import {
 } from "./querying/index.js";
 import {
   Edge,
+  Graph,
   Node,
   Ontology,
   OntologyRegistry,
@@ -26,9 +27,20 @@ import { IngestionResult } from "./ingestion/types.js";
 import {
   GraphNeighborhood,
   GraphPath,
+  edgeSearchItems,
   expandNeighborhoodBfs,
+  nodeSearchItems,
   shortestPaths,
+  topKBySimilarity,
 } from "./querying/utils.js";
+import {
+  ListEdgesOptions,
+  ListNodesOptions,
+  SearchResult,
+  SemanticSearchOptions,
+  filterEdges,
+  filterNodes,
+} from "./search.js";
 import { createLogger } from "../utils/logger.js";
 
 const log = createLogger("GraphClient");
@@ -67,6 +79,8 @@ export type EditEdgeInput = {
   properties?: Record<string, PropertyValue>;
   embedding?: number[];
 };
+
+export type { ListEdgesOptions, ListNodesOptions, SearchResult, SemanticSearchOptions };
 
 export class GraphClient {
   private readonly storageProvider: BaseStorageProvider;
@@ -118,6 +132,77 @@ export class GraphClient {
 
   getEdge(id: string): Promise<Edge> {
     return this.storageProvider.getEdge(id);
+  }
+
+  getNodes(ids: string[]): Promise<Node[]> {
+    return this.storageProvider.getNodes(ids);
+  }
+
+  getEdges(ids: string[]): Promise<Edge[]> {
+    return this.storageProvider.getEdges(ids);
+  }
+
+  async listNodes(options?: ListNodesOptions): Promise<Node[]> {
+    const nodes = await this.storageProvider.listNodes();
+    return filterNodes(nodes, options);
+  }
+
+  async listEdges(options?: ListEdgesOptions): Promise<Edge[]> {
+    const edges = await this.storageProvider.listEdges();
+    return filterEdges(edges, options);
+  }
+
+  async searchNodes(
+    query: string,
+    options?: SemanticSearchOptions,
+  ): Promise<SearchResult<Node>[]> {
+    log.info("Searching nodes", { query, topK: options?.topK });
+    const nodes = filterNodes(await this.storageProvider.listNodes(), { type: options?.type });
+    const [queryEmbedding] = await this.llmProvider.embed([query]);
+    const ranked = topKBySimilarity(
+      this.llmProvider,
+      queryEmbedding,
+      nodeSearchItems(nodes),
+      options?.topK ?? 5,
+    );
+    const nodesById = new Map(nodes.map((node) => [node.id, node]));
+
+    return ranked.flatMap((result) => {
+      const node = nodesById.get(result.id);
+      return node ? [{ item: node, score: result.score }] : [];
+    });
+  }
+
+  async searchEdges(
+    query: string,
+    options?: SemanticSearchOptions,
+  ): Promise<SearchResult<Edge>[]> {
+    log.info("Searching edges", { query, topK: options?.topK });
+    const edges = filterEdges(await this.storageProvider.listEdges(), { type: options?.type });
+    const [queryEmbedding] = await this.llmProvider.embed([query]);
+    const ranked = topKBySimilarity(
+      this.llmProvider,
+      queryEmbedding,
+      edgeSearchItems(edges),
+      options?.topK ?? 5,
+    );
+    const edgesById = new Map(edges.map((edge) => [edge.id, edge]));
+
+    return ranked.flatMap((result) => {
+      const edge = edgesById.get(result.id);
+      return edge ? [{ item: edge, score: result.score }] : [];
+    });
+  }
+
+  async getGraph(options?: {
+    nodes?: ListNodesOptions;
+    edges?: ListEdgesOptions;
+  }): Promise<Graph> {
+    const [nodes, edges] = await Promise.all([
+      this.listNodes(options?.nodes),
+      this.listEdges(options?.edges),
+    ]);
+    return { nodes, edges };
   }
 
   async createNode(input: CreateNodeInput): Promise<Node> {

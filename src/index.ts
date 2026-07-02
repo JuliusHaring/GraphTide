@@ -5,6 +5,10 @@ export type {
   EditEdgeInput,
   EditNodeInput,
   GraphClientOptions,
+  ListEdgesOptions,
+  ListNodesOptions,
+  SearchResult,
+  SemanticSearchOptions,
 } from "./graph/graph-client.js";
 
 export type { IngestionResult } from "./graph/ingestion/types.js";
