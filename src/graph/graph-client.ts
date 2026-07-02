@@ -350,6 +350,10 @@ export class GraphClient {
       to,
       (nodeId) => this.storageProvider.listEdgesForNode(nodeId),
       limit,
+      async (nodeIds) => {
+        const nodes = await this.storageProvider.getNodes(nodeIds);
+        return new Map(nodes.map((node) => [node.id, node]));
+      },
     );
   }
 

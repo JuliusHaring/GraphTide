@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { BaseLLMProvider } from "../../llm/base-llm-provider.js";
 import { Message } from "../../llm/types.js";
-import { Edge } from "../ontology.js";
+import { Edge, Node } from "../ontology.js";
 import {
   expandNeighborhood,
   expandNeighborhoodBfs,
   formatPathDescription,
+  graphPathNodeIds,
   shortestPath,
   shortestPaths,
   topKByTextMatch,
@@ -19,6 +20,24 @@ const edges: Edge[] = [
   { id: "e4", type: "teaches", from: "moses", to: "commandments", properties: {} },
   { id: "e5", type: "member_of", from: "moses", to: "israelites", properties: {} },
 ];
+
+function testNode(id: string, name: string): Node {
+  return { id, type: "person", properties: { name } };
+}
+
+const nodesById = new Map<string, Node>([
+  ["aaron", testNode("aaron", "Aaron")],
+  ["nadab", testNode("nadab", "Nadab")],
+  ["leviticus", testNode("leviticus", "Leviticus")],
+  ["exodus", testNode("exodus", "Exodus")],
+  ["moses", testNode("moses", "Moses")],
+  ["commandments", testNode("commandments", "Commandments")],
+  ["israelites", testNode("israelites", "Israelites")],
+  ["a", testNode("a", "A")],
+  ["b", testNode("b", "B")],
+  ["c", testNode("c", "C")],
+  ["d", testNode("d", "D")],
+]);
 
 describe("topKByTextMatch", () => {
   it("ranks items by query term overlap without embeddings", () => {
@@ -117,23 +136,21 @@ describe("expandNeighborhoodBfs", () => {
 
 describe("shortestPath", () => {
   it("finds a multi-hop path", () => {
-    const path = shortestPath("aaron", "leviticus", edges);
+    const path = shortestPath("aaron", "leviticus", edges, nodesById)!;
 
-    expect(path).toEqual({
-      nodeIds: ["aaron", "nadab", "leviticus"],
-      edges: [edges[0], edges[1]],
-    });
+    expect(graphPathNodeIds(path)).toEqual(["aaron", "nadab", "leviticus"]);
+    expect(path[1]).toEqual(edges[0]);
+    expect(path[3]).toEqual(edges[1]);
   });
 
   it("returns a single-node path for identical endpoints", () => {
-    expect(shortestPath("moses", "moses", edges)).toEqual({
-      nodeIds: ["moses"],
-      edges: [],
-    });
+    const path = shortestPath("moses", "moses", edges, nodesById)!;
+
+    expect(path).toEqual([nodesById.get("moses")]);
   });
 
   it("returns undefined when no path exists", () => {
-    expect(shortestPath("leviticus", "israelites", edges)).toBeUndefined();
+    expect(shortestPath("leviticus", "israelites", edges, nodesById)).toBeUndefined();
   });
 });
 
@@ -147,34 +164,28 @@ describe("shortestPaths", () => {
   ];
 
   it("returns multiple equally short paths before longer ones", () => {
-    const paths = shortestPaths("a", "d", diamondEdges, 3);
+    const paths = shortestPaths("a", "d", diamondEdges, 3, nodesById);
 
     expect(paths).toHaveLength(3);
-    expect(paths[0].nodeIds).toEqual(["a", "b", "d"]);
-    expect(paths[1].nodeIds).toEqual(["a", "c", "d"]);
-    expect(paths[2].nodeIds).toEqual(["a", "b", "c", "d"]);
+    expect(graphPathNodeIds(paths[0])).toEqual(["a", "b", "d"]);
+    expect(graphPathNodeIds(paths[1])).toEqual(["a", "c", "d"]);
+    expect(graphPathNodeIds(paths[2])).toEqual(["a", "b", "c", "d"]);
   });
 
   it("respects the limit", () => {
-    expect(shortestPaths("a", "d", diamondEdges, 1)).toHaveLength(1);
-    expect(shortestPaths("a", "d", diamondEdges, 0)).toEqual([]);
+    expect(shortestPaths("a", "d", diamondEdges, 1, nodesById)).toHaveLength(1);
+    expect(shortestPaths("a", "d", diamondEdges, 0, nodesById)).toEqual([]);
   });
 
   it("returns an empty array when no path exists", () => {
-    expect(shortestPaths("leviticus", "israelites", edges, 3)).toEqual([]);
+    expect(shortestPaths("leviticus", "israelites", edges, 3, nodesById)).toEqual([]);
   });
 });
 
 describe("formatPathDescription", () => {
   it("describes each hop in the path", () => {
-    const path = shortestPath("aaron", "leviticus", edges)!;
-    const nodesById = new Map([
-      ["aaron", { id: "aaron", type: "person", properties: { name: "Aaron" } }],
-      ["nadab", { id: "nadab", type: "person", properties: { name: "Nadab" } }],
-      ["leviticus", { id: "leviticus", type: "book", properties: { name: "Leviticus" } }],
-    ]);
-
-    const description = formatPathDescription(nodesById, path);
+    const path = shortestPath("aaron", "leviticus", edges, nodesById)!;
+    const description = formatPathDescription(path);
 
     expect(description).toContain("Aaron");
     expect(description).toContain("Nadab");

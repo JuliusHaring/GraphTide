@@ -84,13 +84,29 @@ Find ranked paths between two nodes directly:
 import { type GraphPath } from "graphint";
 
 const paths: GraphPath[] = await client.getShortestPaths("alice", "acme", 3);
-// paths[0] is shortest; ties and longer paths follow
-for (const path of paths) {
-  console.log(path.nodeIds.join(" -> "));
-}
 ```
 
-Each `GraphPath` has `nodeIds` and `edges`. The `shortest_path` query method uses the same logic internally (up to `topK` paths per seed pair).
+A `GraphPath` is a plain list alternating **node, edge, node, …**, always ending on a node:
+
+```ts
+[
+  { id: "alice", type: "person", properties: { name: "Alice" } },
+  { id: "e1", type: "works_at", from: "alice", to: "acme", properties: { since: 2020 } },
+  { id: "acme", type: "company", properties: { name: "Acme" } },
+];
+```
+
+Use `isGraphPathEdge(step)` to tell nodes from edges, or the helpers `graphPathNodes(path)`, `graphPathEdges(path)`, `graphPathNodeIds(path)`.
+
+`paths[0]` is the shortest; ties and longer paths follow. The `shortest_path` query method uses the same logic internally (up to `topK` paths per seed pair).
+
+```ts
+import { graphPathNodeIds } from "graphint";
+
+for (const path of paths) {
+  console.log(graphPathNodeIds(path).join(" -> "));
+}
+```
 
 ### Neighborhood expansion
 
@@ -109,6 +125,41 @@ console.log(neighborhood.edges); // edges between included nodes
 ```
 
 The `bfs` query method uses the same logic internally (`maxHops` + `topK` from query options).
+
+### Query methods
+
+`client.query(question, options?)` returns a `GraphQueryResult`:
+
+```ts
+const result = await client.query("Who works at Acme Corp?", { method: "bfs" });
+
+result.query; // original question
+result.answer; // LLM-generated answer
+result.materials; // graph snippets fed to the LLM
+result.method; // method that was used
+```
+
+Pass `method` to pick a strategy, or omit it to use `combined` (the default). Tuning options (`topK`, `seedK`, `maxHops`) apply to methods that need them.
+
+| Method          | What it does                                                                                          | Best for                                        |
+| --------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `combined`      | LLM picks one or more strategies below, gathers materials from each, then synthesizes a single answer | General questions (default)                     |
+| `basic`         | Ranks nodes and edges by relevance to the question; returns the top matches                           | “Find entities related to X”                    |
+| `local`         | Picks seed nodes by relevance, then expands one hop along edges                                       | Questions about direct relationships            |
+| `global`        | Clusters the graph into communities, ranks community summaries by relevance                           | Broad/thematic questions across the whole graph |
+| `drift`         | Local 1-hop neighborhood plus community summaries that overlap that neighborhood                      | Connecting local facts to wider context         |
+| `bfs`           | Seed nodes by relevance, then multi-hop BFS expansion (`maxHops`, `topK`)                             | “What is connected to X within N hops?”         |
+| `shortest_path` | Seed nodes by relevance, then shortest paths between seed pairs (falls back to 1-hop if no paths)     | “How are A and B related?”                      |
+
+Relevance ranking uses **stored embeddings** when nodes/edges have them (only the query text is embedded). When no embeddings are stored, ranking falls back to **text term matching** with no embedding API calls.
+
+```ts
+// Pick a specific method
+await client.query("How are Alice and Acme connected?", { method: "shortest_path", seedK: 4 });
+
+// Combined routing (default)
+await client.query("What themes appear across the document?");
+```
 
 ### Query tuning
 

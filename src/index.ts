@@ -43,6 +43,13 @@ export type {
   QueryTuningOptions,
 } from "./graph/querying/types.js";
 export type { GraphNeighborhood, GraphPath } from "./graph/querying/utils.js";
+export {
+  buildGraphPath,
+  graphPathEdges,
+  graphPathNodeIds,
+  graphPathNodes,
+  isGraphPathEdge,
+} from "./graph/querying/utils.js";
 
 export { BaseLLMProvider } from "./llm/base-llm-provider.js";
 export type { LLMProviderOptions } from "./llm/base-llm-provider.js";

@@ -212,17 +212,50 @@ export async function expandNeighborhoodBfsWithLookup(
   return { nodeIds, edges: filteredEdges };
 }
 
-export type GraphPath = {
+type PathTrace = {
   nodeIds: string[];
   edges: Edge[];
 };
 
-export function shortestPaths(
-  startId: string,
-  endId: string,
-  edges: Edge[],
-  limit: number,
-): GraphPath[] {
+/** Ordered walk: node, edge, node, edge, … ending on a node. */
+export type GraphPath = Array<Node | Edge>;
+
+export function isGraphPathEdge(step: Node | Edge): step is Edge {
+  return "from" in step && "to" in step;
+}
+
+export function buildGraphPath(trace: PathTrace, nodesById: Map<string, Node>): GraphPath {
+  const path: GraphPath = [];
+
+  for (let index = 0; index < trace.nodeIds.length; index++) {
+    const node = nodesById.get(trace.nodeIds[index]);
+    if (!node) {
+      throw new Error(`Node with id "${trace.nodeIds[index]}" not found`);
+    }
+
+    path.push(node);
+
+    if (index < trace.edges.length) {
+      path.push(trace.edges[index]);
+    }
+  }
+
+  return path;
+}
+
+export function graphPathNodes(path: GraphPath): Node[] {
+  return path.filter((step): step is Node => !isGraphPathEdge(step));
+}
+
+export function graphPathEdges(path: GraphPath): Edge[] {
+  return path.filter(isGraphPathEdge);
+}
+
+export function graphPathNodeIds(path: GraphPath): string[] {
+  return graphPathNodes(path).map((node) => node.id);
+}
+
+function findPathTraces(startId: string, endId: string, edges: Edge[], limit: number): PathTrace[] {
   if (limit <= 0) {
     return [];
   }
@@ -231,11 +264,11 @@ export function shortestPaths(
     return [{ nodeIds: [startId], edges: [] }];
   }
 
-  const results: GraphPath[] = [];
-  let frontier: GraphPath[] = [{ nodeIds: [startId], edges: [] }];
+  const results: PathTrace[] = [];
+  let frontier: PathTrace[] = [{ nodeIds: [startId], edges: [] }];
 
   while (frontier.length > 0 && results.length < limit) {
-    const nextFrontier: GraphPath[] = [];
+    const nextFrontier: PathTrace[] = [];
 
     for (const path of frontier) {
       const currentId = path.nodeIds[path.nodeIds.length - 1];
@@ -273,12 +306,12 @@ export function shortestPaths(
   return results;
 }
 
-export async function shortestPathsWithLookup(
+async function findPathTracesWithLookup(
   startId: string,
   endId: string,
-  getEdgesForNode: EdgeLookup,
+  getEdgesForNode: (nodeId: string) => Edge[] | Promise<Edge[]>,
   limit: number,
-): Promise<GraphPath[]> {
+): Promise<PathTrace[]> {
   if (limit <= 0) {
     return [];
   }
@@ -287,11 +320,11 @@ export async function shortestPathsWithLookup(
     return [{ nodeIds: [startId], edges: [] }];
   }
 
-  const results: GraphPath[] = [];
-  let frontier: GraphPath[] = [{ nodeIds: [startId], edges: [] }];
+  const results: PathTrace[] = [];
+  let frontier: PathTrace[] = [{ nodeIds: [startId], edges: [] }];
 
   while (frontier.length > 0 && results.length < limit) {
-    const nextFrontier: GraphPath[] = [];
+    const nextFrontier: PathTrace[] = [];
 
     for (const path of frontier) {
       const currentId = path.nodeIds[path.nodeIds.length - 1];
@@ -330,27 +363,45 @@ export async function shortestPathsWithLookup(
   return results;
 }
 
-export function shortestPath(startId: string, endId: string, edges: Edge[]): GraphPath | undefined {
-  return shortestPaths(startId, endId, edges, 1)[0];
+export function shortestPaths(
+  startId: string,
+  endId: string,
+  edges: Edge[],
+  limit: number,
+  nodesById: Map<string, Node>,
+): GraphPath[] {
+  return findPathTraces(startId, endId, edges, limit).map((trace) =>
+    buildGraphPath(trace, nodesById),
+  );
 }
 
-export function formatPathDescription(nodesById: Map<string, Node>, path: GraphPath): string {
-  const segments: string[] = [];
+export async function shortestPathsWithLookup(
+  startId: string,
+  endId: string,
+  getEdgesForNode: (nodeId: string) => Edge[] | Promise<Edge[]>,
+  limit: number,
+  loadNodes: (nodeIds: string[]) => Promise<Map<string, Node>>,
+): Promise<GraphPath[]> {
+  const traces = await findPathTracesWithLookup(startId, endId, getEdgesForNode, limit);
+  const nodeIds = [...new Set(traces.flatMap((trace) => trace.nodeIds))];
+  const nodesById = await loadNodes(nodeIds);
+  return traces.map((trace) => buildGraphPath(trace, nodesById));
+}
 
-  for (let index = 0; index < path.edges.length; index++) {
-    const node = nodesById.get(path.nodeIds[index]);
-    if (node) {
-      segments.push(formatNode(node));
-    }
-    segments.push(formatEdge(path.edges[index]));
-  }
+export function shortestPath(
+  startId: string,
+  endId: string,
+  edges: Edge[],
+  nodesById: Map<string, Node>,
+): GraphPath | undefined {
+  return shortestPaths(startId, endId, edges, 1, nodesById)[0];
+}
 
-  const lastNode = nodesById.get(path.nodeIds[path.nodeIds.length - 1]);
-  if (lastNode) {
-    segments.push(formatNode(lastNode));
-  }
-
-  const hops = Math.max(0, path.nodeIds.length - 1);
+export function formatPathDescription(path: GraphPath): string {
+  const segments = path.map((step) =>
+    isGraphPathEdge(step) ? formatEdge(step) : formatNode(step),
+  );
+  const hops = graphPathEdges(path).length;
   return `Path (${hops} hop${hops === 1 ? "" : "s"}): ${segments.join(" then ")}`;
 }
 
