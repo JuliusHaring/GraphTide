@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0](https://github.com/JuliusHaring/GraphTide/compare/v0.2.0...v0.3.0) (2026-07-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* make build process work
+
+### Bug Fixes
+
+* make build process work ([3e29496](https://github.com/JuliusHaring/GraphTide/commit/3e2949661a404db0bb9bfdf53ec9df4bd27ab673))
+
 ## [0.2.0](https://github.com/JuliusHaring/GraphTide/compare/v0.1.3...v0.2.0) (2026-07-02)
 
 
