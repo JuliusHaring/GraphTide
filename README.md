@@ -234,23 +234,29 @@ npm run commitlint
 
 Releases use [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version):
 
-| Script                  | Description                                                                                |
-| ----------------------- | ------------------------------------------------------------------------------------------ |
-| `npm run test:unit`       | Run unit tests                                                                             |
-| `npm run changelog`       | Preview the next version and changelog (dry run)                                           |
-| `npm run release`         | Run tests, bump semver from commits, update `CHANGELOG.md`, commit, tag, and `npm publish` |
-| `npm run release:patch`   | Force a patch release and publish                                                          |
-| `npm run release:minor`   | Force a minor release and publish                                                          |
-| `npm run release:major`   | Force a major release and publish                                                          |
-| `npm run release:first`   | First release only (no version bump) and publish                                           |
+| Script                  | Description                                                      |
+| ----------------------- | ---------------------------------------------------------------- |
+| `npm run test:unit`     | Run unit tests                                                   |
+| `npm run changelog`     | Preview the next version and changelog (dry run)                 |
+| `npm run release`       | Bump semver from commits since last tag, changelog, tag, publish |
+| `npm run release:patch` | Force a patch release and publish                                |
+| `npm run release:minor` | Force a minor release and publish                                |
+| `npm run release:major` | Force a major release and publish                                |
 
-Typical flow:
+First publish after a reset:
 
 ```bash
 npm install
-# ... merge conventional commits to main ...
+npm run changelog          # preview
+npm run release:initial    # v0.1.0 → CHANGELOG + tag + npm publish
+git push --follow-tags
+```
+
+Subsequent releases:
+
+```bash
 npm run changelog    # preview
-npm run release      # version bump + CHANGELOG + tag + npm publish
+npm run release      # semver bump from conventional commits
 git push --follow-tags
 ```
 

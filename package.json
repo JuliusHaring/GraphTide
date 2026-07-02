@@ -1,6 +1,6 @@
 {
   "name": "graphint",
-  "version": "0.3.1",
+  "version": "0.0.0",
   "description": "Graph intelligence library for ingesting documents, building typed knowledge graphs, and querying them with LLMs",
   "keywords": [
     "graph",
@@ -49,8 +49,7 @@
     "release": "npm run test:unit && commit-and-tag-version && npm run release:amend && npm publish",
     "release:patch": "npm run test:unit && commit-and-tag-version --release-as patch && npm run release:amend && npm publish",
     "release:minor": "npm run test:unit && commit-and-tag-version --release-as minor && npm run release:amend && npm publish",
-    "release:major": "npm run test:unit && commit-and-tag-version --release-as major && npm run release:amend && npm publish",
-    "release:first": "commit-and-tag-version --first-release && npm publish"
+    "release:major": "npm run test:unit && commit-and-tag-version --release-as major && npm run release:amend && npm publish"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.0",
