@@ -46,17 +46,20 @@ console.log(result.materials);
 
 `GraphClient` is the main entry point.
 
-| Method                                   | Description                                                                                                              |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `ingestFromPath(path)`                   | Extract entities from a file (PDF, DOCX, XLSX, plain text, …)                                                            |
-| `ingestFromFile(file)`                   | Same as above, for `File` objects (e.g. in browsers)                                                                     |
-| `ingestFromText(text)`                   | Extract entities from raw text                                                                                           |
-| `createNode` / `editNode` / `deleteNode` | CRUD for nodes                                                                                                           |
-| `createEdge` / `editEdge` / `deleteEdge` | CRUD for edges                                                                                                           |
-| `getNode` / `getEdge`                    | Read by id                                                                                                               |
-| `getShortestPaths(from, to, limit?)`     | Up to `limit` shortest simple paths between two nodes, ordered by hop count                                              |
-| `getBfsNeighborhood(seeds, options?)`    | BFS expansion from seed node(s); `maxHops` (default 2) and optional `topK` node cap                                      |
-| `query(question, options?)`              | Natural-language query; returns `{ query, answer, materials, method }`. Options: `{ method?, topK?, seedK?, maxHops? }`. |
+| Method                                     | Description                                                                                                              |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `ingestFromPath(path)`                     | Extract entities from a file (PDF, DOCX, XLSX, plain text, …)                                                            |
+| `ingestFromFile(file)`                     | Same as above, for `File` objects (e.g. in browsers)                                                                     |
+| `ingestFromText(text)`                     | Extract entities from raw text                                                                                           |
+| `createNode` / `updateNode` / `deleteNode` | Strict create (fails on duplicate), update existing (fails if missing), and delete for nodes                             |
+| `upsertNode` / `upsertEdge`                | Create or merge properties when the id already exists; returns `{ item, created }`                                       |
+| `createEdge` / `updateEdge` / `deleteEdge` | Strict create, update existing, and delete for edges                                                                     |
+| `getNode` / `getEdge`                      | Read by id (throws if missing)                                                                                           |
+| `tryGetNode` / `tryGetEdge`                | Read by id, returns `undefined` if missing                                                                               |
+| `hasNode` / `hasEdge`                      | Check existence by id                                                                                                    |
+| `getShortestPaths(from, to, limit?)`       | Up to `limit` shortest simple paths between two nodes, ordered by hop count                                              |
+| `getBfsNeighborhood(seeds, options?)`      | BFS expansion from seed node(s); `maxHops` (default 2) and optional `topK` node cap                                      |
+| `query(question, options?)`                | Natural-language query; returns `{ query, answer, materials, method }`. Options: `{ method?, topK?, seedK?, maxHops? }`. |
 
 ### Storage providers
 

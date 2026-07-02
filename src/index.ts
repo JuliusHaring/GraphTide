@@ -2,14 +2,15 @@ export { GraphClient } from "./graph/graph-client.js";
 export type {
   CreateEdgeInput,
   CreateNodeInput,
-  EditEdgeInput,
-  EditNodeInput,
   GraphClientOptions,
   GraphQueryResult,
   ListEdgesOptions,
   ListNodesOptions,
   SearchResult,
   SemanticSearchOptions,
+  UpdateEdgeInput,
+  UpdateNodeInput,
+  UpsertResult,
 } from "./graph/graph-client.js";
 
 export type { IngestionResult } from "./graph/ingestion/types.js";

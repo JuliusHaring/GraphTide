@@ -65,7 +65,7 @@ export type CreateNodeInput = {
   properties?: Record<string, PropertyValue>;
 };
 
-export type EditNodeInput = {
+export type UpdateNodeInput = {
   type?: string;
   properties?: Record<string, PropertyValue>;
   embedding?: number[];
@@ -79,12 +79,17 @@ export type CreateEdgeInput = {
   properties?: Record<string, PropertyValue>;
 };
 
-export type EditEdgeInput = {
+export type UpdateEdgeInput = {
   type?: string;
   from?: string;
   to?: string;
   properties?: Record<string, PropertyValue>;
   embedding?: number[];
+};
+
+export type UpsertResult<T> = {
+  item: T;
+  created: boolean;
 };
 
 export type GraphQueryResult = QueryResult & {
@@ -153,6 +158,22 @@ export class GraphClient {
     return this.storageProvider.getEdge(id);
   }
 
+  tryGetNode(id: string): Promise<Node | undefined> {
+    return this.tryGetNodeInternal(id);
+  }
+
+  tryGetEdge(id: string): Promise<Edge | undefined> {
+    return this.tryGetEdgeInternal(id);
+  }
+
+  async hasNode(id: string): Promise<boolean> {
+    return (await this.tryGetNodeInternal(id)) !== undefined;
+  }
+
+  async hasEdge(id: string): Promise<boolean> {
+    return (await this.tryGetEdgeInternal(id)) !== undefined;
+  }
+
   getNodes(ids: string[]): Promise<Node[]> {
     return this.storageProvider.getNodes(ids);
   }
@@ -217,13 +238,22 @@ export class GraphClient {
 
   async createNode(input: CreateNodeInput): Promise<Node> {
     log.info("Creating node", { id: input.id, type: input.type });
-    const node = await this.finalizeNode(this.ontologyRegistry.parseNode(input));
+    const node = await this.prepareNode(input);
     await this.storageProvider.createNode(node);
     return node;
   }
 
-  async editNode(id: string, input: EditNodeInput): Promise<Node> {
-    log.info("Editing node", { id });
+  async upsertNode(input: CreateNodeInput): Promise<UpsertResult<Node>> {
+    log.info("Upserting node", { id: input.id, type: input.type });
+    const existing = await this.tryGetNodeInternal(input.id);
+    const node = await this.prepareNode(input, existing);
+    await this.storageProvider.upsertNode(node);
+    log.debug("Upserted node", { id: input.id, created: !existing });
+    return { item: node, created: !existing };
+  }
+
+  async updateNode(id: string, input: UpdateNodeInput): Promise<Node> {
+    log.info("Updating node", { id });
     const existing = await this.storageProvider.getNode(id);
     const node = await this.finalizeNode(
       this.ontologyRegistry.parseNode({
@@ -240,15 +270,22 @@ export class GraphClient {
 
   async createEdge(input: CreateEdgeInput): Promise<Edge> {
     log.info("Creating edge", { id: input.id, type: input.type, from: input.from, to: input.to });
-    const edge = await this.finalizeEdge(
-      this.ontologyRegistry.parseEdge(input, await this.loadNodesById([input.from, input.to])),
-    );
+    const edge = await this.prepareEdge(input);
     await this.storageProvider.createEdge(edge);
     return edge;
   }
 
-  async editEdge(id: string, input: EditEdgeInput): Promise<Edge> {
-    log.info("Editing edge", { id });
+  async upsertEdge(input: CreateEdgeInput): Promise<UpsertResult<Edge>> {
+    log.info("Upserting edge", { id: input.id, type: input.type, from: input.from, to: input.to });
+    const existing = await this.tryGetEdgeInternal(input.id);
+    const edge = await this.prepareEdge(input, existing);
+    await this.storageProvider.upsertEdge(edge);
+    log.debug("Upserted edge", { id: input.id, created: !existing });
+    return { item: edge, created: !existing };
+  }
+
+  async updateEdge(id: string, input: UpdateEdgeInput): Promise<Edge> {
+    log.info("Updating edge", { id });
     const existing = await this.storageProvider.getEdge(id);
     const from = input.from ?? existing.from;
     const to = input.to ?? existing.to;
@@ -360,8 +397,12 @@ export class GraphClient {
   }
 
   private async save(result: IngestionResult): Promise<void> {
-    const existingNodes = await Promise.all(result.nodes.map((node) => this.tryGetNode(node.id)));
-    const existingEdges = await Promise.all(result.edges.map((edge) => this.tryGetEdge(edge.id)));
+    const existingNodes = await Promise.all(
+      result.nodes.map((node) => this.tryGetNodeInternal(node.id)),
+    );
+    const existingEdges = await Promise.all(
+      result.edges.map((edge) => this.tryGetEdgeInternal(edge.id)),
+    );
 
     const nodes = await this.applyNodeEmbeddings(result.nodes, existingNodes);
     const edges = await this.applyEdgeEmbeddings(result.edges, existingEdges);
@@ -374,7 +415,7 @@ export class GraphClient {
     }
   }
 
-  private async tryGetNode(id: string): Promise<Node | undefined> {
+  private async tryGetNodeInternal(id: string): Promise<Node | undefined> {
     try {
       return await this.storageProvider.getNode(id);
     } catch {
@@ -382,12 +423,43 @@ export class GraphClient {
     }
   }
 
-  private async tryGetEdge(id: string): Promise<Edge | undefined> {
+  private async tryGetEdgeInternal(id: string): Promise<Edge | undefined> {
     try {
       return await this.storageProvider.getEdge(id);
     } catch {
       return undefined;
     }
+  }
+
+  private async prepareNode(input: CreateNodeInput, existing?: Node): Promise<Node> {
+    return this.finalizeNode(
+      this.ontologyRegistry.parseNode({
+        id: input.id,
+        type: input.type,
+        properties: existing
+          ? { ...(existing.properties ?? {}), ...(input.properties ?? {}) }
+          : (input.properties ?? {}),
+      }),
+      existing,
+    );
+  }
+
+  private async prepareEdge(input: CreateEdgeInput, existing?: Edge): Promise<Edge> {
+    return this.finalizeEdge(
+      this.ontologyRegistry.parseEdge(
+        {
+          id: input.id,
+          type: input.type,
+          from: input.from,
+          to: input.to,
+          properties: existing
+            ? { ...(existing.properties ?? {}), ...(input.properties ?? {}) }
+            : (input.properties ?? {}),
+        },
+        await this.loadNodesById([input.from, input.to]),
+      ),
+      existing,
+    );
   }
 
   private async finalizeNode(node: Node, existing?: Node): Promise<Node> {
