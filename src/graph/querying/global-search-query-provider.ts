@@ -1,6 +1,6 @@
 import { BaseQueryProvider } from "./base-query-provider.js";
 import { QueryContext, QueryGraph } from "./types.js";
-import { formatCommunity, topKBySimilarity } from "./utils.js";
+import { formatCommunity, topKRelevant } from "./utils.js";
 
 export class GlobalSearchQueryProvider extends BaseQueryProvider {
   async buildContext(query: string, graph: QueryGraph): Promise<QueryContext> {
@@ -10,15 +10,11 @@ export class GlobalSearchQueryProvider extends BaseQueryProvider {
       return { query, materials: [] };
     }
 
-    const [queryEmbedding] = await this.llmProvider.embed([query]);
-    const summaries = communities.map((community) => community.summary);
-    const summaryEmbeddings = await this.llmProvider.embed(summaries);
-    const ranked = topKBySimilarity(
+    const ranked = await topKRelevant(
       this.llmProvider,
-      queryEmbedding,
-      communities.map((community, index) => ({
+      query,
+      communities.map((community) => ({
         id: community.id,
-        embedding: summaryEmbeddings[index],
         text: formatCommunity(community.id, community.summary),
       })),
       this.topK,

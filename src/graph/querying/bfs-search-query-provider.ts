@@ -5,16 +5,15 @@ import {
   formatEdge,
   formatNode,
   nodeSearchItems,
-  topKBySimilarity,
+  topKRelevant,
 } from "./utils.js";
 
 export class BfsSearchQueryProvider extends BaseQueryProvider {
   async buildContext(query: string, graph: QueryGraph): Promise<QueryContext> {
     this.log.debug("Building BFS search context", { maxHops: this.maxHops });
-    const [queryEmbedding] = await this.llmProvider.embed([query]);
-    const seeds = topKBySimilarity(
+    const seeds = await topKRelevant(
       this.llmProvider,
-      queryEmbedding,
+      query,
       nodeSearchItems(graph.nodes),
       this.seedK,
     );

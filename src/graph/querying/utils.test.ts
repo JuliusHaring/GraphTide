@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { BaseLLMProvider } from "../../llm/base-llm-provider.js";
+import { Message } from "../../llm/types.js";
 import { Edge } from "../ontology.js";
 import {
   expandNeighborhood,
@@ -6,6 +8,8 @@ import {
   formatPathDescription,
   shortestPath,
   shortestPaths,
+  topKByTextMatch,
+  topKRelevant,
 } from "./utils.js";
 
 const edges: Edge[] = [
@@ -15,6 +19,70 @@ const edges: Edge[] = [
   { id: "e4", type: "teaches", from: "moses", to: "commandments", properties: {} },
   { id: "e5", type: "member_of", from: "moses", to: "israelites", properties: {} },
 ];
+
+describe("topKByTextMatch", () => {
+  it("ranks items by query term overlap without embeddings", () => {
+    const ranked = topKByTextMatch(
+      "Aaron sons",
+      [
+        { id: "aaron", text: 'Node aaron (person): {"name":"Aaron"}' },
+        { id: "leviticus", text: 'Node leviticus (book): {"name":"Leviticus"}' },
+        { id: "nadab", text: 'Node nadab (person): {"name":"Nadab"}' },
+      ],
+      2,
+    );
+
+    expect(ranked).toHaveLength(1);
+    expect(ranked[0].id).toBe("aaron");
+  });
+});
+
+describe("topKRelevant", () => {
+  class EmbeddingMock extends BaseLLMProvider {
+    protected embedUncached(texts: string[]): Promise<number[][]> {
+      return Promise.resolve(texts.map(() => [1, 0, 0]));
+    }
+
+    generate(_messages: Message[]): Promise<string> {
+      return Promise.resolve("");
+    }
+  }
+
+  it("uses text match when items have no supplied embeddings", async () => {
+    const llm = new EmbeddingMock({ apiKey: "test", model: "test" });
+    const embedSpy = vi.spyOn(llm, "embed");
+
+    const ranked = await topKRelevant(
+      llm,
+      "Aaron",
+      [{ id: "aaron", text: 'Node aaron (person): {"name":"Aaron"}' }],
+      1,
+    );
+
+    expect(embedSpy).not.toHaveBeenCalled();
+    expect(ranked[0].id).toBe("aaron");
+  });
+
+  it("embeds the query when items have supplied embeddings", async () => {
+    const llm = new EmbeddingMock({ apiKey: "test", model: "test" });
+    const embedSpy = vi.spyOn(llm, "embed");
+
+    await topKRelevant(
+      llm,
+      "Aaron",
+      [
+        {
+          id: "aaron",
+          embedding: [1, 0, 0],
+          text: 'Node aaron (person): {"name":"Aaron"}',
+        },
+      ],
+      1,
+    );
+
+    expect(embedSpy).toHaveBeenCalledOnce();
+  });
+});
 
 describe("expandNeighborhoodBfs", () => {
   it("matches 1-hop expansion when maxHops is 1", () => {

@@ -36,6 +36,50 @@ export function topKBySimilarity(
     .slice(0, topK);
 }
 
+export function topKByTextMatch(
+  query: string,
+  items: Array<{ id: string; text: string }>,
+  topK: number,
+): ScoredItem[] {
+  const terms = query
+    .toLowerCase()
+    .split(/\W+/)
+    .filter((term) => term.length > 1);
+
+  const scored = items.map((item) => {
+    const haystack = item.text.toLowerCase();
+    const matches = terms.filter((term) => haystack.includes(term)).length;
+    const score = terms.length > 0 ? matches / terms.length : 0;
+    return { id: item.id, text: item.text, score };
+  });
+
+  scored.sort((left, right) => right.score - left.score);
+
+  if (scored.every((item) => item.score === 0)) {
+    return scored.slice(0, topK);
+  }
+
+  return scored.filter((item) => item.score > 0).slice(0, topK);
+}
+
+export function itemsHaveEmbeddings(items: Array<{ embedding?: number[] }>): boolean {
+  return items.some((item) => item.embedding && item.embedding.length > 0);
+}
+
+export async function topKRelevant(
+  llmProvider: BaseLLMProvider,
+  query: string,
+  items: Array<{ id: string; embedding?: number[]; text: string }>,
+  topK: number,
+): Promise<ScoredItem[]> {
+  if (itemsHaveEmbeddings(items)) {
+    const [queryEmbedding] = await llmProvider.embed([query]);
+    return topKBySimilarity(llmProvider, queryEmbedding, items, topK);
+  }
+
+  return topKByTextMatch(query, items, topK);
+}
+
 export function expandNeighborhood(seedIds: Set<string>, edges: Edge[]): GraphNeighborhood {
   return expandNeighborhoodBfs(seedIds, edges, 1);
 }

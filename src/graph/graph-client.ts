@@ -38,7 +38,7 @@ import {
   expandNeighborhoodBfsWithLookup,
   nodeSearchItems,
   shortestPathsWithLookup,
-  topKBySimilarity,
+  topKRelevant,
 } from "./querying/utils.js";
 import {
   ListEdgesOptions,
@@ -223,10 +223,9 @@ export class GraphClient {
   async searchNodes(query: string, options?: SemanticSearchOptions): Promise<SearchResult<Node>[]> {
     log.info("Searching nodes", { query, topK: options?.topK });
     const nodes = filterNodes(await this.storageProvider.listNodes(), { type: options?.type });
-    const [queryEmbedding] = await this.llmProvider.embed([query]);
-    const ranked = topKBySimilarity(
+    const ranked = await topKRelevant(
       this.llmProvider,
-      queryEmbedding,
+      query,
       nodeSearchItems(nodes),
       options?.topK ?? 5,
     );
@@ -241,10 +240,9 @@ export class GraphClient {
   async searchEdges(query: string, options?: SemanticSearchOptions): Promise<SearchResult<Edge>[]> {
     log.info("Searching edges", { query, topK: options?.topK });
     const edges = filterEdges(await this.storageProvider.listEdges(), { type: options?.type });
-    const [queryEmbedding] = await this.llmProvider.embed([query]);
-    const ranked = topKBySimilarity(
+    const ranked = await topKRelevant(
       this.llmProvider,
-      queryEmbedding,
+      query,
       edgeSearchItems(edges),
       options?.topK ?? 5,
     );

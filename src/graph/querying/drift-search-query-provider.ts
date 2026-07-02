@@ -1,7 +1,7 @@
 import { BaseQueryProvider } from "./base-query-provider.js";
 import { LocalSearchQueryProvider } from "./local-search-query-provider.js";
 import { QueryContext, QueryGraph } from "./types.js";
-import { expandNeighborhood, formatCommunity, nodeSearchItems, topKBySimilarity } from "./utils.js";
+import { expandNeighborhood, formatCommunity, nodeSearchItems, topKRelevant } from "./utils.js";
 
 export class DriftSearchQueryProvider extends BaseQueryProvider {
   private readonly localSearch = new LocalSearchQueryProvider(this.options);
@@ -14,10 +14,9 @@ export class DriftSearchQueryProvider extends BaseQueryProvider {
       return localContext;
     }
 
-    const [queryEmbedding] = await this.llmProvider.embed([query]);
-    const seeds = topKBySimilarity(
+    const seeds = await topKRelevant(
       this.llmProvider,
-      queryEmbedding,
+      query,
       nodeSearchItems(graph.nodes),
       this.seedK,
     );

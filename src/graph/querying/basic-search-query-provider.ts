@@ -1,14 +1,13 @@
 import { BaseQueryProvider } from "./base-query-provider.js";
 import { QueryContext, QueryGraph } from "./types.js";
-import { edgeSearchItems, nodeSearchItems, topKBySimilarity } from "./utils.js";
+import { edgeSearchItems, nodeSearchItems, topKRelevant } from "./utils.js";
 
 export class BasicSearchQueryProvider extends BaseQueryProvider {
   async buildContext(query: string, graph: QueryGraph): Promise<QueryContext> {
     this.log.debug("Building basic search context");
-    const [queryEmbedding] = await this.llmProvider.embed([query]);
-    const ranked = topKBySimilarity(
+    const ranked = await topKRelevant(
       this.llmProvider,
-      queryEmbedding,
+      query,
       [...nodeSearchItems(graph.nodes), ...edgeSearchItems(graph.edges)],
       this.topK,
     );
