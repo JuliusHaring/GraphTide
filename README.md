@@ -1,11 +1,11 @@
-# graphint
+# GraphTide
 
 Graph intelligence library for ingesting documents, building typed knowledge graphs, and querying them with LLMs.
 
 ## Install
 
 ```bash
-npm install graphint
+npm install graphtide
 ```
 
 Requires Node.js 18+.
@@ -13,7 +13,7 @@ Requires Node.js 18+.
 ## Quick start
 
 ```ts
-import { GraphClient, GeminiLLMProvider, SqliteStorageProvider, type Ontology } from "graphint";
+import { GraphClient, GeminiLLMProvider, SqliteStorageProvider, type Ontology } from "graphtide";
 
 const ontology: Ontology = {
   nodeTypes: [
@@ -81,7 +81,7 @@ LLM integration is also pluggable via `BaseLLMProvider`.
 Find ranked paths between two nodes directly:
 
 ```ts
-import { type GraphPath } from "graphint";
+import { type GraphPath } from "graphtide";
 
 const paths: GraphPath[] = await client.getShortestPaths("alice", "acme", 3);
 ```
@@ -101,7 +101,7 @@ Use `isGraphPathEdge(step)` to tell nodes from edges, or the helpers `graphPathN
 `paths[0]` is the shortest; ties and longer paths follow. The `shortest_path` query method uses the same logic internally (up to `topK` paths per seed pair).
 
 ```ts
-import { graphPathNodeIds } from "graphint";
+import { graphPathNodeIds } from "graphtide";
 
 for (const path of paths) {
   console.log(graphPathNodeIds(path).join(" -> "));
@@ -113,7 +113,7 @@ for (const path of paths) {
 Expand outward from one or more seed nodes with BFS:
 
 ```ts
-import { type GraphNeighborhood } from "graphint";
+import { type GraphNeighborhood } from "graphtide";
 
 const neighborhood: GraphNeighborhood = await client.getBfsNeighborhood("alice", {
   maxHops: 2,
@@ -183,7 +183,7 @@ await client.query("Who works at Acme Corp?", { method: "bfs", topK: 3, maxHops:
 Large documents are split before LLM extraction. Configure defaults on the client or override per ingest call:
 
 ```ts
-import { DEFAULT_INGESTION_CHUNK_SIZE, GraphClient } from "graphint";
+import { DEFAULT_INGESTION_CHUNK_SIZE, GraphClient } from "graphtide";
 
 const client = new GraphClient({
   // ...

@@ -1,6 +1,6 @@
 {
-  "name": "graphint",
-  "version": "0.1.0",
+  "name": "graphtide",
+  "version": "0.0.0",
   "description": "Graph intelligence library for ingesting documents, building typed knowledge graphs, and querying them with LLMs",
   "keywords": [
     "graph",
@@ -11,7 +11,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/JuliusHaring/GraphInt.git"
+    "url": "git+https://github.com/JuliusHaring/GraphTide.git"
   },
   "author": "Julius Haring",
   "type": "module",

@@ -32,8 +32,8 @@ const goldenCases = JSON.parse(readFileSync(goldenPath, "utf8")) as GoldenFile;
 describe.runIf(hasApiKey && hasDatabase)("graph golden eval", () => {
   const llmProvider = new GeminiLLMProvider({
     apiKey: process.env.GOOGLE_API_KEY || "",
-    model: process.env.GRAPHINT_EVAL_MODEL || "gemini-3.1-flash-lite",
-    embeddingModel: process.env.GRAPHINT_EMBEDDING_MODEL || "gemini-embedding-001",
+    model: process.env.GRAPHTIDE_EVAL_MODEL || "gemini-3.1-flash-lite",
+    embeddingModel: process.env.GRAPHTIDE_EMBEDDING_MODEL || "gemini-embedding-001",
   });
 
   const client = new GraphClient({

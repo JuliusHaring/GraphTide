@@ -9,8 +9,8 @@ import { GeminiLLMProvider } from "../../src/llm/gemini-llm-provider.js";
 import { SqliteStorageProvider } from "../../src/storage/sqlite-storage-provider.js";
 import { createLogger } from "../../src/utils/logger.js";
 import { bibleOntology } from "../fixtures/ontology.js";
-import { chunkText } from "./chunk-text.js";
 import { BIBLE_DB_PATH, BIBLE_PDF_PATH, BIBLE_PDF_URL, DEFAULT_CHUNK_SIZE } from "./paths.js";
+import { chunkText } from "../../src/graph/ingestion/chunk-text.js";
 
 const PROGRESS_PATH = "tests/data/build-progress.json";
 
@@ -78,10 +78,10 @@ async function main(): Promise<void> {
   const dbPath = resolve(root, BIBLE_DB_PATH);
   const progressPath = resolve(root, PROGRESS_PATH);
   const dataDir = resolve(root, "tests/data");
-  const force = process.env.GRAPHINT_FORCE_BUILD_DB === "1";
-  const chunkSize = Number(process.env.GRAPHINT_BUILD_CHUNK_SIZE) || DEFAULT_CHUNK_SIZE;
-  const maxChunks = process.env.GRAPHINT_BUILD_MAX_CHUNKS
-    ? Number(process.env.GRAPHINT_BUILD_MAX_CHUNKS)
+  const force = process.env.GRAPHTIDE_FORCE_BUILD_DB === "1";
+  const chunkSize = Number(process.env.GRAPHTIDE_BUILD_CHUNK_SIZE) || DEFAULT_CHUNK_SIZE;
+  const maxChunks = process.env.GRAPHTIDE_BUILD_MAX_CHUNKS
+    ? Number(process.env.GRAPHTIDE_BUILD_MAX_CHUNKS)
     : undefined;
 
   await mkdir(dataDir, { recursive: true });
@@ -113,8 +113,8 @@ async function main(): Promise<void> {
 
   const llmProvider = new GeminiLLMProvider({
     apiKey,
-    model: process.env.GRAPHINT_BUILD_MODEL || "gemini-3.1-flash-lite",
-    embeddingModel: process.env.GRAPHINT_EMBEDDING_MODEL || "gemini-embedding-001",
+    model: process.env.GRAPHTIDE_BUILD_MODEL || "gemini-3.1-flash-lite",
+    embeddingModel: process.env.GRAPHTIDE_EMBEDDING_MODEL || "gemini-embedding-001",
   });
 
   const client = new GraphClient({
