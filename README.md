@@ -217,13 +217,13 @@ fix: handle empty seed lists in BFS expansion
 feat!: rename QueryMethod "bfs" to "breadth_first"
 ```
 
-Install git hooks (runs automatically on `npm install`):
+Install git hooks (repo contributors only):
 
 - **pre-commit** — `npm run fl` via [pre-commit](https://www.npmjs.com/package/pre-commit)
 - **commit-msg** — conventional commit lint via commitlint
 
 ```bash
-npm install
+npm run setup-hooks
 ```
 
 Lint the latest commit manually:
