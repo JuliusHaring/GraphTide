@@ -7,7 +7,7 @@ import { MemoryStorageProvider } from "../storage/memory-storage-provider.js";
 
 const ontology: Ontology = {
   nodeTypes: [
-    { id: "person", name: "Person", properties: { name: "string" } },
+    { id: "person", name: "Person", properties: { name: "string", nickname: "string" } },
     { id: "company", name: "Company", properties: { name: "string" } },
   ],
   edgeTypes: [
@@ -46,10 +46,18 @@ function createClient(): GraphClient {
 describe("GraphClient write semantics", () => {
   it("createNode rejects duplicates", async () => {
     const client = createClient();
-    await client.createNode({ id: "alice", type: "person", properties: { name: "Alice" } });
+    await client.createNode({
+      id: "alice",
+      type: "person",
+      properties: { name: "Alice", nickname: "Al" },
+    });
 
     await expect(
-      client.createNode({ id: "alice", type: "person", properties: { name: "Alice II" } }),
+      client.createNode({
+        id: "alice",
+        type: "person",
+        properties: { name: "Alice II", nickname: "Al" },
+      }),
     ).rejects.toThrow('Node with id "alice" already exists');
   });
 
@@ -59,7 +67,7 @@ describe("GraphClient write semantics", () => {
     const created = await client.upsertNode({
       id: "alice",
       type: "person",
-      properties: { name: "Alice" },
+      properties: { name: "Alice", nickname: "Al" },
     });
     expect(created.created).toBe(true);
     expect(created.item.properties?.name).toBe("Alice");
@@ -70,12 +78,16 @@ describe("GraphClient write semantics", () => {
       properties: { name: "Alice Smith" },
     });
     expect(updated.created).toBe(false);
-    expect(updated.item.properties).toEqual({ name: "Alice Smith" });
+    expect(updated.item.properties).toEqual({ name: "Alice Smith", nickname: "Al" });
   });
 
   it("upsertEdge creates and merges properties", async () => {
     const client = createClient();
-    await client.createNode({ id: "alice", type: "person", properties: { name: "Alice" } });
+    await client.createNode({
+      id: "alice",
+      type: "person",
+      properties: { name: "Alice", nickname: "Al" },
+    });
     await client.createNode({ id: "acme", type: "company", properties: { name: "Acme" } });
 
     const created = await client.upsertEdge({
@@ -100,13 +112,34 @@ describe("GraphClient write semantics", () => {
 
   it("updateNode patches existing nodes and rejects missing ids", async () => {
     const client = createClient();
-    await client.createNode({ id: "alice", type: "person", properties: { name: "Alice" } });
+    await client.createNode({
+      id: "alice",
+      type: "person",
+      properties: { name: "Alice", nickname: "Al" },
+    });
 
     const node = await client.updateNode("alice", { properties: { name: "Alice Smith" } });
     expect(node.properties?.name).toBe("Alice Smith");
+    expect(node.properties?.nickname).toBe("Al");
 
     await expect(client.updateNode("missing", { properties: { name: "Nobody" } })).rejects.toThrow(
       'Node with id "missing" not found',
+    );
+  });
+
+  it("updateNode clears properties with null and rejects unsetting required properties", async () => {
+    const client = createClient();
+    await client.createNode({
+      id: "alice",
+      type: "person",
+      properties: { name: "Alice", nickname: "Al" },
+    });
+
+    const cleared = await client.updateNode("alice", { properties: { nickname: null } });
+    expect(cleared.properties?.nickname).toBeNull();
+
+    await expect(client.updateNode("alice", { unsetProperties: ["name"] })).rejects.toBeInstanceOf(
+      z.ZodError,
     );
   });
 
@@ -115,7 +148,11 @@ describe("GraphClient write semantics", () => {
     expect(await client.hasNode("alice")).toBe(false);
     expect(await client.tryGetNode("alice")).toBeUndefined();
 
-    await client.createNode({ id: "alice", type: "person", properties: { name: "Alice" } });
+    await client.createNode({
+      id: "alice",
+      type: "person",
+      properties: { name: "Alice", nickname: "Al" },
+    });
 
     expect(await client.hasNode("alice")).toBe(true);
     expect(await client.tryGetNode("alice")).toMatchObject({ id: "alice" });

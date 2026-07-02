@@ -51,7 +51,7 @@ console.log(result.materials);
 | `ingestFromPath(path)`                     | Extract entities from a file (PDF, DOCX, XLSX, plain text, …)                                                            |
 | `ingestFromFile(file)`                     | Same as above, for `File` objects (e.g. in browsers)                                                                     |
 | `ingestFromText(text)`                     | Extract entities from raw text                                                                                           |
-| `createNode` / `updateNode` / `deleteNode` | Strict create (fails on duplicate), update existing (fails if missing), and delete for nodes                             |
+| `createNode` / `updateNode` / `deleteNode` | Strict create, partial update (`properties`, `unsetProperties`), and delete for nodes                             |
 | `upsertNode` / `upsertEdge`                | Create or merge properties when the id already exists; returns `{ item, created }`                                       |
 | `createEdge` / `updateEdge` / `deleteEdge` | Strict create, update existing, and delete for edges                                                                     |
 | `getNode` / `getEdge`                      | Read by id (throws if missing)                                                                                           |

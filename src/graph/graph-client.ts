@@ -46,6 +46,7 @@ import {
   filterEdges,
   filterNodes,
 } from "./search.js";
+import { mergeProperties } from "./properties.js";
 import { createLogger } from "../utils/logger.js";
 
 const log = createLogger("GraphClient");
@@ -68,6 +69,8 @@ export type CreateNodeInput = {
 export type UpdateNodeInput = {
   type?: string;
   properties?: Record<string, PropertyValue>;
+  /** Property keys to remove before applying updates. */
+  unsetProperties?: string[];
   embedding?: number[];
 };
 
@@ -84,6 +87,8 @@ export type UpdateEdgeInput = {
   from?: string;
   to?: string;
   properties?: Record<string, PropertyValue>;
+  /** Property keys to remove before applying updates. */
+  unsetProperties?: string[];
   embedding?: number[];
 };
 
@@ -259,7 +264,7 @@ export class GraphClient {
       this.ontologyRegistry.parseNode({
         id,
         type: input.type ?? existing.type,
-        properties: { ...(existing.properties ?? {}), ...(input.properties ?? {}) },
+        properties: mergeProperties(existing.properties ?? {}, input),
         ...(input.embedding ? { embedding: input.embedding } : {}),
       }),
       existing,
@@ -296,7 +301,7 @@ export class GraphClient {
           type: input.type ?? existing.type,
           from,
           to,
-          properties: { ...(existing.properties ?? {}), ...(input.properties ?? {}) },
+          properties: mergeProperties(existing.properties ?? {}, input),
           ...(input.embedding ? { embedding: input.embedding } : {}),
         },
         await this.loadNodesById([from, to]),
