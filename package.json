@@ -1,6 +1,6 @@
 {
   "name": "graphint",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Graph intelligence library for ingesting documents, building typed knowledge graphs, and querying them with LLMs",
   "keywords": [
     "graph",
@@ -36,9 +36,12 @@
     "fl": "npm run format && npm run lint"
   },
   "devDependencies": {
+    "@commitlint/cli": "^21.2.0",
+    "@commitlint/config-conventional": "^21.2.0",
     "@eslint/js": "^10.0.1",
     "@types/node": "^26.0.1",
     "@types/pdf-parse": "^1.1.5",
+    "commit-and-tag-version": "^12.7.3",
     "dotenv": "^17.4.2",
     "eslint": "^10.6.0",
     "prettier": "^3.9.4",
