@@ -6,6 +6,7 @@ import {
   DocumentExtractorRegistry,
 } from "./document-extractors/registry.js";
 import { mimeTypeFromFile, mimeTypeFromPath } from "./document-extractors/mime.js";
+import { IngestionOptions, resolveIngestionInput } from "./chunking.js";
 import { LLMExtractor } from "./llm-extractor.js";
 import { IngestionResult } from "./types.js";
 import { createLogger } from "../../utils/logger.js";
@@ -25,19 +26,25 @@ export class TextExtractor {
     this.documentExtractors = documentExtractors;
   }
 
-  async extractFromFile(file: File): Promise<IngestionResult> {
+  async extractFromFile(file: File, options?: IngestionOptions): Promise<IngestionResult> {
     const mimeType = mimeTypeFromFile(file);
     log.info("Extracting text from file", { name: file.name, mimeType });
     const buffer = Buffer.from(await file.arrayBuffer());
     const text = await this.documentExtractors.extractText(mimeType, buffer);
-    return this.llmExtractor.extract(text, this.ontology);
+    return this.extractText(text, options);
   }
 
-  async extractFromPath(path: string): Promise<IngestionResult> {
+  async extractFromPath(path: string, options?: IngestionOptions): Promise<IngestionResult> {
     const mimeType = mimeTypeFromPath(path);
     log.info("Extracting text from path", { path, mimeType });
     const buffer = await readFile(path);
     const text = await this.documentExtractors.extractText(mimeType, buffer);
-    return this.llmExtractor.extract(text, this.ontology);
+    return this.extractText(text, options);
+  }
+
+  private async extractText(text: string, options?: IngestionOptions): Promise<IngestionResult> {
+    const chunks = resolveIngestionInput(text, options);
+    log.info("Prepared ingestion chunks", { chunks: chunks.length });
+    return this.llmExtractor.extract(chunks, this.ontology);
   }
 }

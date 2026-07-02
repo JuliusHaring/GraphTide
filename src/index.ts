@@ -4,6 +4,7 @@ export type {
   CreateNodeInput,
   GraphClientOptions,
   GraphQueryResult,
+  IngestionOptions,
   ListEdgesOptions,
   ListNodesOptions,
   NeighborsOptions,
@@ -16,6 +17,13 @@ export type {
 } from "./graph/graph-client.js";
 
 export type { IngestionResult } from "./graph/ingestion/types.js";
+export { chunkText } from "./graph/ingestion/chunk-text.js";
+export {
+  DEFAULT_INGESTION_CHUNK_SIZE,
+  resolveIngestionInput,
+  resolveTextChunks,
+} from "./graph/ingestion/chunking.js";
+export type { TextChunker } from "./graph/ingestion/chunking.js";
 export type {
   Edge,
   EdgeType,

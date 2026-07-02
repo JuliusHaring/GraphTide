@@ -29,6 +29,7 @@ import {
 } from "./ontology.js";
 import { LLMExtractor } from "./ingestion/llm-extractor.js";
 import { TextExtractor } from "./ingestion/text-extractor.js";
+import { IngestionOptions, resolveIngestionInput } from "./ingestion/chunking.js";
 import { IngestionResult } from "./ingestion/types.js";
 import {
   GraphNeighborhood,
@@ -59,6 +60,8 @@ export type GraphClientOptions = {
   enableEmbedding?: boolean;
   /** Default query retrieval tuning for all query calls. */
   query?: QueryTuningOptions;
+  /** Default ingestion chunking for document and text ingestion. */
+  ingestion?: IngestionOptions;
 };
 
 export type CreateNodeInput = {
@@ -112,6 +115,7 @@ export type GraphQueryResult = QueryResult & {
 };
 
 export type {
+  IngestionOptions,
   ListEdgesOptions,
   ListNodesOptions,
   QueryOptions,
@@ -128,6 +132,7 @@ export class GraphClient {
   private readonly ontologyRegistry: OntologyRegistry;
   private readonly enableEmbedding: boolean;
   private readonly defaultQueryTuning: QueryTuningOptions;
+  private readonly defaultIngestionOptions: IngestionOptions;
 
   constructor(private readonly options: GraphClientOptions) {
     this.storageProvider = options.storageProvider;
@@ -135,31 +140,39 @@ export class GraphClient {
     this.ontology = options.ontology;
     this.enableEmbedding = options.enableEmbedding ?? false;
     this.defaultQueryTuning = options.query ?? {};
+    this.defaultIngestionOptions = options.ingestion ?? {};
     this.ontologyRegistry = OntologyRegistry.parse(options.ontology);
     this.textExtractor = new TextExtractor(options.llmProvider, options.ontology);
     this.llmExtractor = new LLMExtractor(options.llmProvider);
     log.info("Initialized", { enableEmbedding: this.enableEmbedding });
   }
 
-  async ingestFromPath(path: string): Promise<IngestionResult> {
-    log.info("Ingesting from path", { path });
-    const result = await this.textExtractor.extractFromPath(path);
+  async ingestFromPath(path: string, options?: IngestionOptions): Promise<IngestionResult> {
+    const resolved = this.resolveIngestionOptions(options);
+    log.info("Ingesting from path", { path, chunkSize: resolved.chunkSize });
+    const result = await this.textExtractor.extractFromPath(path, resolved);
     await this.save(result);
     log.info("Ingestion complete", { nodes: result.nodes.length, edges: result.edges.length });
     return result;
   }
 
-  async ingestFromFile(file: File): Promise<IngestionResult> {
-    log.info("Ingesting from file", { name: file.name });
-    const result = await this.textExtractor.extractFromFile(file);
+  async ingestFromFile(file: File, options?: IngestionOptions): Promise<IngestionResult> {
+    const resolved = this.resolveIngestionOptions(options);
+    log.info("Ingesting from file", { name: file.name, chunkSize: resolved.chunkSize });
+    const result = await this.textExtractor.extractFromFile(file, resolved);
     await this.save(result);
     log.info("Ingestion complete", { nodes: result.nodes.length, edges: result.edges.length });
     return result;
   }
 
-  async ingestFromText(text: string | string[]): Promise<IngestionResult> {
-    log.info("Ingesting from text", { chunks: Array.isArray(text) ? text.length : 1 });
-    const result = await this.llmExtractor.extract(text, this.ontology);
+  async ingestFromText(
+    text: string | string[],
+    options?: IngestionOptions,
+  ): Promise<IngestionResult> {
+    const resolved = this.resolveIngestionOptions(options);
+    const chunks = resolveIngestionInput(text, resolved);
+    log.info("Ingesting from text", { chunks: chunks.length, chunkSize: resolved.chunkSize });
+    const result = await this.llmExtractor.extract(chunks, this.ontology);
     await this.save(result);
     log.info("Ingestion complete", { nodes: result.nodes.length, edges: result.edges.length });
     return result;
@@ -422,6 +435,14 @@ export class GraphClient {
 
     this.queryProviderCache.set(key, provider);
     return provider;
+  }
+
+  private resolveIngestionOptions(options?: IngestionOptions): IngestionOptions {
+    return {
+      ...this.defaultIngestionOptions,
+      ...options,
+      chunker: options?.chunker ?? this.defaultIngestionOptions.chunker,
+    };
   }
 
   private async save(result: IngestionResult): Promise<void> {

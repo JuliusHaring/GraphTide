@@ -11,18 +11,46 @@ export class LLMExtractor {
   constructor(private readonly llmProvider: BaseLLMProvider) {}
 
   async extract(rawText: string | string[], ontology: Ontology): Promise<IngestionResult> {
-    log.info("Extracting graph from text", { chunks: Array.isArray(rawText) ? rawText.length : 1 });
-    const messages: Message[] = [{ role: "system", content: IngestionSystemPrompt(ontology) }];
+    const chunks = Array.isArray(rawText) ? rawText : [rawText];
+    log.info("Extracting graph from text", { chunks: chunks.length });
 
-    if (Array.isArray(rawText)) {
-      messages.push(...rawText.map((text) => ({ role: "user" as const, content: text })));
-    } else {
-      messages.push({ role: "user", content: rawText });
+    if (chunks.length === 0) {
+      return { nodes: [], edges: [] };
     }
 
-    const raw = await this.llmProvider.generate(messages, undefined, IngestionResultSchema);
-    const result = OntologyRegistry.parse(ontology).parseGraph(raw);
+    if (chunks.length === 1) {
+      return this.extractChunk(chunks[0], ontology);
+    }
+
+    const nodesById = new Map<string, IngestionResult["nodes"][number]>();
+    const edgesById = new Map<string, IngestionResult["edges"][number]>();
+
+    for (let index = 0; index < chunks.length; index++) {
+      log.info("Extracting chunk", { index: index + 1, total: chunks.length });
+      const result = await this.extractChunk(chunks[index], ontology);
+      for (const node of result.nodes) {
+        nodesById.set(node.id, node);
+      }
+      for (const edge of result.edges) {
+        edgesById.set(edge.id, edge);
+      }
+    }
+
+    const result = {
+      nodes: [...nodesById.values()],
+      edges: [...edgesById.values()],
+    };
     log.info("Extraction complete", { nodes: result.nodes.length, edges: result.edges.length });
     return result;
+  }
+
+  private async extractChunk(text: string, ontology: Ontology): Promise<IngestionResult> {
+    const messages: Message[] = [
+      { role: "system", content: IngestionSystemPrompt(ontology) },
+      { role: "user", content: text },
+    ];
+
+    const raw = await this.llmProvider.generate(messages, undefined, IngestionResultSchema);
+    return OntologyRegistry.parse(ontology).parseGraph(raw);
   }
 }

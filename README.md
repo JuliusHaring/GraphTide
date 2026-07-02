@@ -48,9 +48,9 @@ console.log(result.materials);
 
 | Method                                     | Description                                                                                                              |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| `ingestFromPath(path)`                     | Extract entities from a file (PDF, DOCX, XLSX, plain text, …)                                                            |
-| `ingestFromFile(file)`                     | Same as above, for `File` objects (e.g. in browsers)                                                                     |
-| `ingestFromText(text)`                     | Extract entities from raw text                                                                                           |
+| `ingestFromPath(path, options?)`           | Extract entities from a file; optional `chunkSize` / `chunker`                                                           |
+| `ingestFromFile(file, options?)`           | Same as above, for `File` objects (e.g. in browsers)                                                                     |
+| `ingestFromText(text, options?)`           | Extract entities from raw text or pre-chunked strings                                                                    |
 | `createNode` / `updateNode` / `deleteNode` | Strict create, partial update (`properties`, `unsetProperties`), and delete for nodes (also deletes incident edges) |
 | `upsertNode` / `upsertEdge`                | Create or merge properties when the id already exists; returns `{ item, created }`                                       |
 | `createEdge` / `updateEdge` / `deleteEdge` | Strict create, update existing, and delete for edges                                                                     |
@@ -127,6 +127,27 @@ await client.query("Who works at Acme Corp?", { method: "bfs", topK: 3, maxHops:
 - `topK` — max ranked nodes/edges or BFS neighborhood size
 - `seedK` — max seed nodes selected by similarity for expansion strategies
 - `maxHops` — hop limit for BFS neighborhood expansion
+
+### Ingestion chunking
+
+Large documents are split before LLM extraction. Configure defaults on the client or override per ingest call:
+
+```ts
+import { DEFAULT_INGESTION_CHUNK_SIZE, GraphClient } from "graphint";
+
+const client = new GraphClient({
+  // ...
+  ingestion: { chunkSize: DEFAULT_INGESTION_CHUNK_SIZE },
+});
+
+await client.ingestFromPath("./large-document.pdf");
+await client.ingestFromPath("./other.pdf", { chunkSize: 8_000 });
+await client.ingestFromText(longText, { chunker: (text) => text.split("\n---\n") });
+```
+
+- `chunkSize` — max characters per chunk (paragraph-aware splitting)
+- `chunker` — custom chunker function; takes precedence over `chunkSize`
+- Pre-chunked `string[]` inputs are respected, but each entry can be split further when chunking is enabled
 
 ### Ontology
 
