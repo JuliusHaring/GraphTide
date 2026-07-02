@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2](https://github.com/JuliusHaring/GraphInt/compare/v0.2.1...v0.2.2) (2026-07-02)
+
+
+### Bug Fixes
+
+* disable embedding search if embeddings are disabled ([0fe6cd5](https://github.com/JuliusHaring/GraphInt/commit/0fe6cd556d620006b14ce95be5904a77106c30a8))
+
 ## [0.2.1](https://github.com/JuliusHaring/GraphInt/compare/v0.2.0...v0.2.1) (2026-07-02)
 
 ### Bug Fixes

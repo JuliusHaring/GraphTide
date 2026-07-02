@@ -1,6 +1,6 @@
 {
   "name": "graphint",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Graph intelligence library for ingesting documents, building typed knowledge graphs, and querying them with LLMs",
   "keywords": [
     "graph",
