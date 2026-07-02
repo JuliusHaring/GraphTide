@@ -205,6 +205,34 @@ await client.ingestFromText(longText, { chunker: (text) => text.split("\n---\n")
 
 Define node and edge types with typed properties. Use the `Ontology` type or validate at runtime with `OntologySchema`.
 
+Property shorthands like `"string"` are **required** on instances. Mark a property optional with `optional: true` or `required: false`:
+
+```ts
+const ontology: Ontology = {
+  nodeTypes: [
+    {
+      id: "person",
+      name: "Person",
+      properties: {
+        name: "string",
+        nickname: { type: "string", optional: true },
+        meta: {
+          type: "object",
+          optional: true,
+          properties: {
+            active: "boolean",
+            note: { type: "string", optional: true },
+          },
+        },
+      },
+    },
+  ],
+  edgeTypes: [],
+};
+```
+
+Explicit `null` is still allowed for any property value when the property is present.
+
 ## Development
 
 ### Conventional commits

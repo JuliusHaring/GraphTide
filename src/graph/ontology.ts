@@ -1,12 +1,39 @@
 import { z } from "zod";
 
-export type PropertyType =
-  | "string"
-  | "number"
-  | "boolean"
-  | "date"
-  | { type: "array"; items: PropertyType }
-  | { type: "object"; properties: Record<string, PropertyType> };
+export type PrimitivePropertyType = "string" | "number" | "boolean" | "date";
+
+export type PropertySchema =
+  | PrimitivePropertyType
+  | {
+      type: PrimitivePropertyType;
+      required?: boolean;
+      optional?: boolean;
+    }
+  | {
+      type: "array";
+      items: PropertySchema;
+      required?: boolean;
+      optional?: boolean;
+    }
+  | {
+      type: "object";
+      properties: Record<string, PropertySchema>;
+      required?: boolean;
+      optional?: boolean;
+    };
+
+/** @deprecated Use {@link PropertySchema} instead. */
+export type PropertyType = PropertySchema;
+
+type NormalizedPropertySchema = {
+  core: PropertyCore;
+  required: boolean;
+};
+
+type PropertyCore =
+  | { kind: "primitive"; primitive: PrimitivePropertyType }
+  | { kind: "array"; items: NormalizedPropertySchema }
+  | { kind: "object"; properties: Record<string, NormalizedPropertySchema> };
 
 export const DateValueSchema = z.union([
   z.date(),
@@ -29,22 +56,185 @@ function parseIsoDateToUtc(value: string): Date {
   return new Date(Date.UTC(year, month - 1, day));
 }
 
-export const PropertyTypeSchema: z.ZodType<PropertyType> = z.lazy(() =>
+function resolveRequiredFlag(
+  required: boolean | undefined,
+  optional: boolean | undefined,
+  path: (string | number)[],
+): { required: boolean; issues: z.ZodIssue[] } {
+  if (required === true && optional === true) {
+    return {
+      required: true,
+      issues: [
+        {
+          code: "custom",
+          message: `Property cannot be both required and optional`,
+          path,
+        },
+      ],
+    };
+  }
+
+  if (optional === true || required === false) {
+    return { required: false, issues: [] };
+  }
+
+  return { required: true, issues: [] };
+}
+
+function normalizePropertySchema(
+  raw: unknown,
+  path: (string | number)[] = [],
+): { schema: NormalizedPropertySchema; issues: z.ZodIssue[] } {
+  if (raw === "string" || raw === "number" || raw === "boolean" || raw === "date") {
+    return {
+      schema: {
+        core: { kind: "primitive", primitive: raw },
+        required: true,
+      },
+      issues: [],
+    };
+  }
+
+  if (typeof raw !== "object" || raw === null || !("type" in raw)) {
+    return {
+      schema: {
+        core: { kind: "primitive", primitive: "string" },
+        required: true,
+      },
+      issues: [
+        {
+          code: "custom",
+          message: "Invalid property schema",
+          path,
+        },
+      ],
+    };
+  }
+
+  const value = raw as {
+    type: string;
+    required?: boolean;
+    optional?: boolean;
+    items?: unknown;
+    properties?: Record<string, unknown>;
+  };
+  const { required, issues: requiredIssues } = resolveRequiredFlag(
+    value.required,
+    value.optional,
+    path,
+  );
+
+  if (value.type === "array") {
+    const { schema: items, issues: itemIssues } = normalizePropertySchema(value.items, [
+      ...path,
+      "items",
+    ]);
+
+    return {
+      schema: {
+        core: { kind: "array", items },
+        required,
+      },
+      issues: [...requiredIssues, ...itemIssues],
+    };
+  }
+
+  if (value.type === "object") {
+    const properties: Record<string, NormalizedPropertySchema> = {};
+    const issues = [...requiredIssues];
+
+    for (const [key, propertySchema] of Object.entries(value.properties ?? {})) {
+      const normalized = normalizePropertySchema(propertySchema, [...path, "properties", key]);
+      properties[key] = normalized.schema;
+      issues.push(...normalized.issues);
+    }
+
+    return {
+      schema: {
+        core: { kind: "object", properties },
+        required,
+      },
+      issues,
+    };
+  }
+
+  if (
+    value.type === "string" ||
+    value.type === "number" ||
+    value.type === "boolean" ||
+    value.type === "date"
+  ) {
+    return {
+      schema: {
+        core: { kind: "primitive", primitive: value.type },
+        required,
+      },
+      issues: requiredIssues,
+    };
+  }
+
+  return {
+    schema: {
+      core: { kind: "primitive", primitive: "string" },
+      required: true,
+    },
+    issues: [
+      ...requiredIssues,
+      {
+        code: "custom",
+        message: `Unknown property type "${value.type}"`,
+        path: [...path, "type"],
+      },
+    ],
+  };
+}
+
+const PropertySchemaInput: z.ZodType<PropertySchema> = z.lazy(() =>
   z.union([
     z.literal("string"),
     z.literal("number"),
     z.literal("boolean"),
     z.literal("date"),
     z.object({
+      type: z.union([
+        z.literal("string"),
+        z.literal("number"),
+        z.literal("boolean"),
+        z.literal("date"),
+      ]),
+      required: z.boolean().optional(),
+      optional: z.boolean().optional(),
+    }),
+    z.object({
       type: z.literal("array"),
-      items: PropertyTypeSchema,
+      items: PropertySchemaInput,
+      required: z.boolean().optional(),
+      optional: z.boolean().optional(),
     }),
     z.object({
       type: z.literal("object"),
-      properties: z.record(z.string(), PropertyTypeSchema),
+      properties: z.record(z.string(), PropertySchemaInput),
+      required: z.boolean().optional(),
+      optional: z.boolean().optional(),
     }),
   ]),
 );
+
+function normalizePropertyMap(
+  properties: Record<string, PropertySchema>,
+  pathPrefix: (string | number)[],
+): { properties: Record<string, NormalizedPropertySchema>; issues: z.ZodIssue[] } {
+  const normalized: Record<string, NormalizedPropertySchema> = {};
+  const issues: z.ZodIssue[] = [];
+
+  for (const [key, propertySchema] of Object.entries(properties)) {
+    const result = normalizePropertySchema(propertySchema, [...pathPrefix, key]);
+    normalized[key] = result.schema;
+    issues.push(...result.issues);
+  }
+
+  return { properties: normalized, issues };
+}
 
 export const PropertyValueSchema = z.union([
   z.string(),
@@ -58,19 +248,59 @@ export const PropertyValueSchema = z.union([
 
 export type PropertyValue = z.infer<typeof PropertyValueSchema>;
 
-export const NodeTypeSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  properties: z.record(z.string(), PropertyTypeSchema).optional().default({}),
-});
+export type NodeType = {
+  id: string;
+  name: string;
+  properties: Record<string, NormalizedPropertySchema>;
+};
 
-export const EdgeTypeSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  from: z.string(),
-  to: z.string(),
-  properties: z.record(z.string(), PropertyTypeSchema).optional().default({}),
-});
+export type EdgeType = {
+  id: string;
+  name: string;
+  from: string;
+  to: string;
+  properties: Record<string, NormalizedPropertySchema>;
+};
+
+export const NodeTypeSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    properties: z.record(z.string(), PropertySchemaInput).optional().default({}),
+  })
+  .transform((nodeType) => {
+    const { properties, issues } = normalizePropertyMap(nodeType.properties, ["properties"]);
+    if (issues.length > 0) {
+      throw new z.ZodError(issues);
+    }
+    return {
+      id: nodeType.id,
+      name: nodeType.name,
+      properties,
+    };
+  });
+
+export const EdgeTypeSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    from: z.string(),
+    to: z.string(),
+    properties: z.record(z.string(), PropertySchemaInput).optional().default({}),
+  })
+  .transform((edgeType) => {
+    const { properties, issues } = normalizePropertyMap(edgeType.properties, ["properties"]);
+    if (issues.length > 0) {
+      throw new z.ZodError(issues);
+    }
+    return {
+      id: edgeType.id,
+      name: edgeType.name,
+      from: edgeType.from,
+      to: edgeType.to,
+      properties,
+    };
+  });
 
 export const OntologySchema = z
   .object({
@@ -122,8 +352,6 @@ export const OntologySchema = z
   });
 
 export type Ontology = z.infer<typeof OntologySchema>;
-export type NodeType = z.infer<typeof NodeTypeSchema>;
-export type EdgeType = z.infer<typeof EdgeTypeSchema>;
 
 export const NodeSchema = z.object({
   id: z.string(),
@@ -167,30 +395,34 @@ export function serializeEdgeForEmbedding(
   });
 }
 
-export function createPropertyValueValidator(propertyType: PropertyType): z.ZodType {
-  if (propertyType === "string") {
+function createPrimitiveValueValidator(primitive: PrimitivePropertyType): z.ZodType {
+  if (primitive === "string") {
     return z.string().nullable();
   }
-  if (propertyType === "number") {
+  if (primitive === "number") {
     return z.number().nullable();
   }
-  if (propertyType === "boolean") {
+  if (primitive === "boolean") {
     return z.boolean().nullable();
   }
 
-  if (propertyType === "date") {
-    return DateValueSchema.nullable();
+  return DateValueSchema.nullable();
+}
+
+export function createPropertyValueValidator(propertySchema: NormalizedPropertySchema): z.ZodType {
+  if (propertySchema.core.kind === "primitive") {
+    return createPrimitiveValueValidator(propertySchema.core.primitive);
   }
 
-  if (propertyType.type === "array") {
-    return z.array(createPropertyValueValidator(propertyType.items)).nullable();
+  if (propertySchema.core.kind === "array") {
+    return z.array(createPropertyValueValidator(propertySchema.core.items)).nullable();
   }
 
   const shape = Object.fromEntries(
-    Object.entries(propertyType.properties).map(([key, type]) => [
-      key,
-      createPropertyValueValidator(type),
-    ]),
+    Object.entries(propertySchema.core.properties).map(([key, childSchema]) => {
+      const validator = createPropertyValueValidator(childSchema);
+      return [key, childSchema.required ? validator : validator.optional()];
+    }),
   );
 
   return z.object(shape).nullable();
@@ -198,14 +430,14 @@ export function createPropertyValueValidator(propertyType: PropertyType): z.ZodT
 
 function normalizeInstanceProperties(
   properties: Record<string, unknown>,
-  propertyTypes: Record<string, PropertyType>,
+  propertySchemas: Record<string, NormalizedPropertySchema>,
   pathPrefix: (string | number)[],
 ): { properties: Record<string, PropertyValue>; issues: z.ZodIssue[] } {
   const issues: z.ZodIssue[] = [];
   const normalized: Record<string, PropertyValue> = {};
 
   for (const key of Object.keys(properties)) {
-    if (!(key in propertyTypes)) {
+    if (!(key in propertySchemas)) {
       issues.push({
         code: "custom",
         message: `Unknown property "${key}"`,
@@ -214,17 +446,19 @@ function normalizeInstanceProperties(
     }
   }
 
-  for (const [key, propertyType] of Object.entries(propertyTypes)) {
+  for (const [key, propertySchema] of Object.entries(propertySchemas)) {
     if (!(key in properties)) {
-      issues.push({
-        code: "custom",
-        message: `Missing required property "${key}"`,
-        path: [...pathPrefix, "properties"],
-      });
+      if (propertySchema.required) {
+        issues.push({
+          code: "custom",
+          message: `Missing required property "${key}"`,
+          path: [...pathPrefix, "properties"],
+        });
+      }
       continue;
     }
 
-    const result = createPropertyValueValidator(propertyType).safeParse(properties[key]);
+    const result = createPropertyValueValidator(propertySchema).safeParse(properties[key]);
     if (!result.success) {
       issues.push({
         code: "custom",
@@ -234,7 +468,9 @@ function normalizeInstanceProperties(
       continue;
     }
 
-    normalized[key] = result.data as PropertyValue;
+    if (result.data !== undefined) {
+      normalized[key] = result.data as PropertyValue;
+    }
   }
 
   return { properties: normalized, issues };
@@ -390,3 +626,6 @@ export class OntologyRegistry {
     };
   }
 }
+
+/** @deprecated Use {@link PropertySchemaInput} instead. */
+export const PropertyTypeSchema = PropertySchemaInput;

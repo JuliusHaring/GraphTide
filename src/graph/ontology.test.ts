@@ -261,6 +261,142 @@ describe("OntologyRegistry", () => {
     ).toThrow();
   });
 
+  it("allows optional properties to be omitted", () => {
+    const optionalRegistry = OntologyRegistry.parse({
+      nodeTypes: [
+        {
+          id: "person",
+          name: "Person",
+          properties: {
+            name: "string",
+            nickname: { type: "string", optional: true },
+            tags: { type: "array", items: "string", required: false },
+          },
+        },
+      ],
+      edgeTypes: [
+        {
+          id: "works_at",
+          name: "Works At",
+          from: "person",
+          to: "person",
+          properties: {
+            since: "number",
+            title: { type: "string", optional: true },
+          },
+        },
+      ],
+    });
+
+    const node = optionalRegistry.parseNode({
+      id: "1",
+      type: "person",
+      properties: { name: "Alice" },
+    });
+
+    expect(node.properties).toEqual({ name: "Alice" });
+
+    const nodes = new Map([[node.id, node]]);
+    const edge = optionalRegistry.parseEdge(
+      {
+        id: "e1",
+        type: "works_at",
+        from: "1",
+        to: "1",
+        properties: { since: 2020 },
+      },
+      nodes,
+    );
+
+    expect(edge.properties).toEqual({ since: 2020 });
+  });
+
+  it("still validates optional properties when provided", () => {
+    const optionalRegistry = OntologyRegistry.parse({
+      nodeTypes: [
+        {
+          id: "person",
+          name: "Person",
+          properties: {
+            name: "string",
+            nickname: { type: "string", optional: true },
+          },
+        },
+      ],
+      edgeTypes: [],
+    });
+
+    const node = optionalRegistry.parseNode({
+      id: "1",
+      type: "person",
+      properties: { name: "Alice", nickname: "Al" },
+    });
+
+    expect(node.properties.nickname).toBe("Al");
+
+    expect(() =>
+      optionalRegistry.parseNode({
+        id: "2",
+        type: "person",
+        properties: { name: "Bob", nickname: 42 },
+      }),
+    ).toThrow(/Invalid value for property/);
+  });
+
+  it("supports optional nested object properties", () => {
+    const optionalRegistry = OntologyRegistry.parse({
+      nodeTypes: [
+        {
+          id: "person",
+          name: "Person",
+          properties: {
+            name: "string",
+            meta: {
+              type: "object",
+              optional: true,
+              properties: {
+                active: "boolean",
+                note: { type: "string", optional: true },
+              },
+            },
+          },
+        },
+      ],
+      edgeTypes: [],
+    });
+
+    const withoutMeta = optionalRegistry.parseNode({
+      id: "1",
+      type: "person",
+      properties: { name: "Alice" },
+    });
+    expect(withoutMeta.properties).toEqual({ name: "Alice" });
+
+    const withMeta = optionalRegistry.parseNode({
+      id: "2",
+      type: "person",
+      properties: { name: "Bob", meta: { active: true } },
+    });
+    expect(withMeta.properties.meta).toEqual({ active: true });
+  });
+
+  it("rejects property schemas that are both required and optional", () => {
+    expect(() =>
+      OntologyRegistry.parse({
+        nodeTypes: [
+          {
+            id: "person",
+            name: "Person",
+            properties: {
+              name: { type: "string", required: true, optional: true },
+            },
+          },
+        ],
+        edgeTypes: [],
+      }),
+    ).toThrow(/both required and optional/);
+  });
+
   it("validates a full graph", () => {
     const graph = registry.parseGraph({
       nodes: [

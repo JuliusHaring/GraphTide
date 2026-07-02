@@ -30,6 +30,7 @@ export type {
   Node,
   NodeType,
   Ontology,
+  PropertySchema,
   PropertyType,
   PropertyValue,
 } from "./graph/ontology.js";
