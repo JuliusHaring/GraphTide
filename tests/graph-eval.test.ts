@@ -51,8 +51,8 @@ describe.runIf(hasApiKey && hasDatabase)("graph golden eval", () => {
     it(`judges ${testCase.id}`, async () => {
       log.info("Running case", { id: testCase.id, method: testCase.method });
 
-      const answer = await client.query(testCase.question, testCase.method);
-      const verdict = await judgeAnswer(llmProvider, testCase.question, testCase.golden, answer);
+      const result = await client.query(testCase.question, testCase.method);
+      const verdict = await judgeAnswer(llmProvider, testCase.question, testCase.golden, result.answer);
 
       metrics.add({
         id: testCase.id,

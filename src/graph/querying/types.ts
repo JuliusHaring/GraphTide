@@ -35,3 +35,7 @@ export type QueryContext = {
   query: string;
   materials: string[];
 };
+
+export type QueryResult = QueryContext & {
+  answer: string;
+};

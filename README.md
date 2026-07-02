@@ -37,8 +37,9 @@ const client = new GraphClient({
 await client.ingestFromPath("./document.pdf");
 await client.ingestFromText("Alice works at Acme Corp.");
 
-const answer = await client.query("Who works at Acme Corp?");
-console.log(answer);
+const result = await client.query("Who works at Acme Corp?");
+console.log(result.answer);
+console.log(result.materials);
 ```
 
 ## API overview
@@ -55,7 +56,7 @@ console.log(answer);
 | `getNode` / `getEdge`                    | Read by id                                                                          |
 | `getShortestPaths(from, to, limit?)`     | Up to `limit` shortest simple paths between two nodes, ordered by hop count         |
 | `getBfsNeighborhood(seeds, options?)`    | BFS expansion from seed node(s); `maxHops` (default 2) and optional `topK` node cap |
-| `query(question, method?)`               | Natural-language query over the graph                                               |
+| `query(question, method?)`               | Natural-language query; returns `{ query, answer, materials, method }`              |
 
 ### Storage providers
 

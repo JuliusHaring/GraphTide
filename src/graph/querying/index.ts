@@ -13,5 +13,6 @@ export type {
   QueryGraph,
   QueryMethod,
   QueryPlan,
+  QueryResult,
   QueryStrategy,
 } from "./types.js";

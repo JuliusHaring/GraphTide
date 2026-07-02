@@ -38,9 +38,7 @@ export class CombinedSearchQueryProvider extends BaseQueryProvider {
     };
   }
 
-  async query(query: string, graph?: QueryGraph): Promise<string> {
-    this.log.info("Running combined query", { query });
-    const context = await this.buildContext(query, graph ?? (await this.loadGraph()));
+  protected async answerFromContext(context: QueryContext): Promise<string> {
     this.log.debug("Synthesizing combined answer");
     return this.llmProvider.generate(buildCombinedAnswerMessages(context.query, context.materials));
   }

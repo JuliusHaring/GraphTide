@@ -11,6 +11,7 @@ import {
   ShortestPathSearchQueryProvider,
   QueryMethod,
 } from "./querying/index.js";
+import type { QueryResult } from "./querying/types.js";
 import {
   Edge,
   Graph,
@@ -78,6 +79,10 @@ export type EditEdgeInput = {
   to?: string;
   properties?: Record<string, PropertyValue>;
   embedding?: number[];
+};
+
+export type GraphQueryResult = QueryResult & {
+  method: QueryMethod;
 };
 
 export type { ListEdgesOptions, ListNodesOptions, SearchResult, SemanticSearchOptions };
@@ -291,11 +296,14 @@ export class GraphClient {
     return expandNeighborhoodBfs(seedIds, edges, maxHops, options?.topK);
   }
 
-  async query(input: string, method: QueryMethod = "combined"): Promise<string> {
+  async query(
+    input: string,
+    method: QueryMethod = "combined",
+  ): Promise<GraphQueryResult> {
     log.info("Querying graph", { method });
-    const answer = await this.getQueryProvider(method).query(input);
-    log.debug("Query complete", { method });
-    return answer;
+    const result = await this.getQueryProvider(method).query(input);
+    log.debug("Query complete", { method, materials: result.materials.length });
+    return { ...result, method };
   }
 
   private queryProviders: Partial<Record<QueryMethod, BaseQueryProvider>> = {};

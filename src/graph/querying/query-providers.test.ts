@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { BaseLLMProvider } from "../../llm/base-llm-provider.js";
+import { Message } from "../../llm/types.js";
 import { BaseStorageProvider } from "../../storage/base-storage-provider.js";
 import { Edge, Node } from "../ontology.js";
 import { BfsSearchQueryProvider } from "./bfs-search-query-provider.js";
@@ -25,12 +26,26 @@ class MockLLMProvider extends BaseLLMProvider {
   constructor(
     private readonly queryEmbedding: number[],
     private readonly nodeCatalog: Node[] = nodes,
+    private readonly answer = "mocked answer",
   ) {
     super({ apiKey: "test", model: "test" });
   }
 
-  generate<T extends z.ZodType>(): Promise<z.infer<T>> {
-    return Promise.resolve({} as z.infer<T>);
+  generate(messages: Message[]): Promise<string>;
+  generate<T extends z.ZodType>(
+    messages: Message[],
+    selfHealAttempts: number | undefined,
+    schema: T,
+  ): Promise<z.infer<T>>;
+  generate<T extends z.ZodType>(
+    _messages: Message[],
+    _selfHealAttempts?: number,
+    schema?: T,
+  ): Promise<string | z.infer<T>> {
+    if (schema) {
+      return Promise.resolve({} as z.infer<T>);
+    }
+    return Promise.resolve(this.answer);
   }
 
   protected embedUncached(texts: string[]): Promise<number[][]> {
@@ -137,6 +152,22 @@ describe("BfsSearchQueryProvider", () => {
 
     expect(oneHop.nodeIds.includes("leviticus")).toBe(false);
     expect(context.materials.join("\n")).not.toContain("Leviticus");
+  });
+
+  it("returns materials and answer from query", async () => {
+    const provider = new BfsSearchQueryProvider({
+      llmProvider: new MockLLMProvider([1, 0, 0], nodes, "Aaron is connected to Leviticus."),
+      storageProvider,
+      seedK: 1,
+      maxHops: 2,
+    });
+
+    const result = await provider.query("Which books mention Aaron's sons?", graph);
+
+    expect(result.query).toBe("Which books mention Aaron's sons?");
+    expect(result.materials.length).toBeGreaterThan(0);
+    expect(result.materials.join("\n")).toContain("Leviticus");
+    expect(result.answer).toBe("Aaron is connected to Leviticus.");
   });
 });
 

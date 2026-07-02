@@ -5,6 +5,7 @@ export type {
   EditEdgeInput,
   EditNodeInput,
   GraphClientOptions,
+  GraphQueryResult,
   ListEdgesOptions,
   ListNodesOptions,
   SearchResult,
@@ -24,7 +25,7 @@ export type {
 } from "./graph/ontology.js";
 export { OntologySchema } from "./graph/ontology.js";
 
-export type { QueryMethod } from "./graph/querying/types.js";
+export type { QueryMethod, QueryResult } from "./graph/querying/types.js";
 export type { GraphNeighborhood, GraphPath } from "./graph/querying/utils.js";
 
 export { BaseLLMProvider } from "./llm/base-llm-provider.js";

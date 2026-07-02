@@ -2,7 +2,7 @@ import { BaseLLMProvider } from "../../llm/base-llm-provider.js";
 import { BaseStorageProvider } from "../../storage/base-storage-provider.js";
 import { createLogger, Logger } from "../../utils/logger.js";
 import { buildCommunitySummaryMessages, buildQueryAnswerMessages } from "./prompts.js";
-import { Community, QueryContext, QueryGraph } from "./types.js";
+import { Community, QueryContext, QueryGraph, QueryResult } from "./types.js";
 import { buildGraphSignature, detectCommunities, formatEdge, formatNode } from "./utils.js";
 
 export type QueryProviderOptions = {
@@ -56,10 +56,15 @@ export abstract class BaseQueryProvider {
     return { ...graph, communities };
   }
 
-  async query(query: string, graph?: QueryGraph): Promise<string> {
+  async query(query: string, graph?: QueryGraph): Promise<QueryResult> {
     this.log.info("Running query", { query });
     const context = await this.buildContext(query, graph ?? (await this.loadGraph()));
     this.log.debug("Context built", { materials: context.materials.length });
+    const answer = await this.answerFromContext(context);
+    return { ...context, answer };
+  }
+
+  protected async answerFromContext(context: QueryContext): Promise<string> {
     return this.answer(context);
   }
 
